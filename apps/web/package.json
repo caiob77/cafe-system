@@ -1,0 +1,11 @@
+{
+  "name": "@cafe/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo '[web] placeholder dev — implementado no Passo 1.5'",
+    "build": "echo '[web] placeholder build'",
+    "lint": "biome check .",
+    "typecheck": "echo '[web] sem código ainda'"
+  }
+}

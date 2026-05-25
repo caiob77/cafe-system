@@ -1,0 +1,24 @@
+{
+  "name": "cafe-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema de pedidos e gerenciamento de caixa para cafés da manhã (SaaS multi-tenant)",
+  "packageManager": "pnpm@11.0.9",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check": "biome check --write .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "turbo": "^2.3.3",
+    "typescript": "^5.6.3"
+  }
+}

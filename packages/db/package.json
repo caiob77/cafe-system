@@ -1,0 +1,10 @@
+{
+  "name": "@cafe/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "biome check .",
+    "typecheck": "echo '[db] sem código ainda — implementado no Passo 1.2'"
+  }
+}

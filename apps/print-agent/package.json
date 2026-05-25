@@ -1,0 +1,11 @@
+{
+  "name": "@cafe/print-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo '[print-agent] placeholder dev — implementado na Fase 7'",
+    "build": "echo '[print-agent] placeholder build'",
+    "lint": "biome check ."
+  }
+}
