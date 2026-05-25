@@ -3,8 +3,33 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
+    "db:generate": "dotenv -e ../../.env -- prisma generate",
+    "db:migrate": "dotenv -e ../../.env -- prisma migrate dev",
+    "db:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
+    "db:push": "dotenv -e ../../.env -- prisma db push",
+    "db:studio": "dotenv -e ../../.env -- prisma studio",
+    "db:seed": "dotenv -e ../../.env -- prisma db seed",
+    "db:reset": "dotenv -e ../../.env -- prisma migrate reset",
+    "db:post-migrate": "dotenv -e ../../.env -- bash -c 'docker exec -i cafe-postgres psql \"$DATABASE_URL\" < prisma/sql/post-migrate.sql'",
     "lint": "biome check .",
-    "typecheck": "echo '[db] sem código ainda — implementado no Passo 1.2'"
+    "typecheck": "tsc --noEmit"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "dotenv-cli": "^11.0.0",
+    "tsx": "^4.22.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "prisma": "^6.19.3"
   }
 }

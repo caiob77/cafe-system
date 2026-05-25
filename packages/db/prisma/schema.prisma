@@ -1,0 +1,515 @@
+// ============================================================================
+// Café System — Prisma Schema
+// ----------------------------------------------------------------------------
+// Convenções:
+//  - cuid() em PKs (migrar para uuid v7 quando escalar).
+//  - Decimal(10,2) em valores monetários por linha. Agregações em relatórios
+//    devem usar cast para numeric(14,2).
+//  - Soft delete via `deletedAt` em catálogo/clientes/mesas. Entidades
+//    financeiras (Order, Payment, CashRegister, CashMovement) são imutáveis.
+//  - `organizationId` denormalizado em todas as tabelas filhas de domínio
+//    para habilitar RLS no Postgres (ver prisma/sql/post-migrate.sql).
+//  - `idempotencyKey` obrigatório em Order e Payment para evitar
+//    duplicação por retry/click duplo.
+//  - Snapshots (`productNameSnapshot`, `addonNameSnapshot`) preservam o
+//    histórico mesmo se o produto for renomeado/soft-deletado.
+//  - CHECK constraints e unique parcial vivem em prisma/sql/post-migrate.sql
+//    (Prisma ainda não emite essas estruturas no migrate dev).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// AUTH — Better Auth (core + organization plugin)
+// Schemas mantidos no contrato do Better Auth. Não alterar tipos das colunas
+// do core (User, Session, Account, Verification, Member, Invitation).
+// ============================================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  emailVerified Boolean  @default(false)
+  image         String?
+  phone         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions        Session[]
+  accounts        Account[]
+  members         Member[]
+  invitationsSent Invitation[]   @relation("inviter")
+  openedRegisters CashRegister[] @relation("opener")
+  closedRegisters CashRegister[] @relation("closer")
+  cashMovements   CashMovement[]
+  cancelledOrders Order[]        @relation("orderCancelledBy")
+
+  @@map("user")
+}
+
+model Session {
+  id                   String   @id @default(cuid())
+  expiresAt            DateTime
+  token                String   @unique
+  ipAddress            String?
+  userAgent            String?
+  activeOrganizationId String?
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  // Custom café fields
+  deliveryEnabled    Boolean  @default(false)
+  deliverySchedule   Json?
+  defaultDeliveryFee Decimal? @db.Decimal(10, 2)
+  addressLine        String?
+  phone              String?
+
+  members         Member[]
+  invitations     Invitation[]
+  categories      Category[]
+  products        Product[]
+  productAddons   ProductAddon[]
+  tables          Table[]
+  customers       Customer[]
+  orders          Order[]
+  orderItems      OrderItem[]
+  orderItemAddons OrderItemAddon[]
+  payments        Payment[]
+  cashRegisters   CashRegister[]
+  cashMovements   CashMovement[]
+  printJobs       PrintJob[]
+  deliveryFees    DeliveryNeighborhoodFee[]
+
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String // gerenciado pelo Better Auth (owner | manager | attendant | kitchen)
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String       @default("pending")
+  expiresAt      DateTime
+  inviterId      String
+  inviter        User         @relation("inviter", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
+}
+
+// ============================================================================
+// CAFÉ DOMAIN — Enums
+// ============================================================================
+
+enum OrderType {
+  dine_in
+  delivery
+}
+
+enum OrderStatus {
+  pending
+  preparing
+  ready
+  out_for_delivery
+  delivered
+  finished
+  cancelled
+}
+
+enum PaymentMethod {
+  cash
+  credit_card
+  debit_card
+  pix
+}
+
+enum TableStatus {
+  free
+  occupied
+  awaiting_payment
+}
+
+enum CashMovementType {
+  withdrawal // sangria
+  deposit // suprimento
+}
+
+enum PrintJobType {
+  kitchen_ticket
+  payment_receipt
+}
+
+enum PrintJobStatus {
+  queued
+  sent
+  printed
+  failed
+}
+
+// ============================================================================
+// CAFÉ DOMAIN — Models
+// ============================================================================
+
+model Category {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  sortOrder      Int          @default(0)
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  products Product[]
+
+  @@index([organizationId])
+  @@index([organizationId, active])
+  @@index([organizationId, deletedAt])
+  @@map("category")
+}
+
+model Product {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  categoryId     String
+  category       Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  name           String
+  description    String?
+  price          Decimal      @db.Decimal(10, 2)
+  imageUrl       String?
+  imagePublicId  String? // Cloudinary public_id (para deletar do CDN)
+  available      Boolean      @default(true)
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  addons     ProductAddon[]
+  orderItems OrderItem[]
+
+  @@index([organizationId])
+  @@index([categoryId])
+  @@index([organizationId, deletedAt])
+  @@map("product")
+}
+
+model ProductAddon {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name           String
+  price          Decimal      @db.Decimal(10, 2)
+  available      Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  orderItemAddons OrderItemAddon[]
+
+  @@index([organizationId])
+  @@index([productId])
+  @@map("product_addon")
+}
+
+model Table {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  number         Int
+  capacity       Int          @default(4)
+  status         TableStatus  @default(free)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  orders Order[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId])
+  @@map("table")
+}
+
+model Customer {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  phone          String
+  address        String?
+  neighborhood   String?
+  reference      String?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  orders Order[]
+
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+  @@map("customer")
+}
+
+model Order {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  idempotencyKey String       @unique
+  dailyNumber    Int
+  orderDate      DateTime     @db.Date // popular com createdAt::date no app; usado no unique composto
+  type           OrderType
+  status         OrderStatus  @default(pending)
+  version        Int          @default(0) // optimistic locking
+
+  tableId    String?
+  table      Table?    @relation(fields: [tableId], references: [id])
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  // Monetário — total só é "congelado" (CHECK) quando status = finished.
+  // Antes disso pode estar em construção.
+  subtotal            Decimal  @default(0) @db.Decimal(10, 2)
+  discountAmount      Decimal? @db.Decimal(10, 2)
+  serviceChargeAmount Decimal? @db.Decimal(10, 2) // 10% garçom (opcional)
+  taxAmount           Decimal? @db.Decimal(10, 2)
+  deliveryFee         Decimal? @db.Decimal(10, 2)
+  total               Decimal  @default(0) @db.Decimal(10, 2)
+  currency            String   @default("BRL") @db.Char(3)
+
+  notes           String?
+  kitchenNotes    String?
+  deliveryAddress String? // snapshot do endereço de entrega (independe de Customer mudar)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  finishedAt    DateTime?
+  cancelledAt   DateTime?
+  cancelReason  String?
+  cancelledById String?
+  cancelledBy   User?     @relation("orderCancelledBy", fields: [cancelledById], references: [id])
+
+  items     OrderItem[]
+  payments  Payment[]
+  printJobs PrintJob[]
+
+  @@unique([organizationId, orderDate, dailyNumber])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, type, status])
+  @@index([organizationId, createdAt])
+  @@index([tableId])
+  @@index([customerId])
+  @@map("order")
+}
+
+model OrderItem {
+  id                  String       @id @default(cuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orderId             String
+  order               Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId           String
+  product             Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productNameSnapshot String // congelado no momento da venda
+  quantity            Int
+  unitPrice           Decimal      @db.Decimal(10, 2)
+  notes               String?
+  createdAt           DateTime     @default(now())
+
+  addons OrderItemAddon[]
+
+  @@index([organizationId])
+  @@index([orderId])
+  @@map("order_item")
+}
+
+model OrderItemAddon {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orderItemId       String
+  orderItem         OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  productAddonId    String
+  productAddon      ProductAddon @relation(fields: [productAddonId], references: [id], onDelete: Restrict)
+  addonNameSnapshot String
+  quantity          Int          @default(1)
+  unitPrice         Decimal      @db.Decimal(10, 2)
+
+  @@index([organizationId])
+  @@index([orderItemId])
+  @@map("order_item_addon")
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  cashRegisterId String
+  cashRegister   CashRegister  @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
+  idempotencyKey String        @unique
+  method         PaymentMethod
+  amount         Decimal       @db.Decimal(10, 2)
+  changeAmount   Decimal?      @db.Decimal(10, 2)
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId])
+  @@index([organizationId, createdAt])
+  @@index([orderId])
+  @@index([cashRegisterId])
+  @@map("payment")
+}
+
+model CashRegister {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  openedById     String
+  openedBy       User         @relation("opener", fields: [openedById], references: [id])
+  closedById     String?
+  closedBy       User?        @relation("closer", fields: [closedById], references: [id])
+  openedAt       DateTime     @default(now())
+  closedAt       DateTime?
+  initialAmount  Decimal      @db.Decimal(10, 2)
+  finalAmount    Decimal?     @db.Decimal(10, 2)
+  expectedAmount Decimal?     @db.Decimal(10, 2)
+  difference     Decimal?     @db.Decimal(10, 2)
+  notes          String?
+  version        Int          @default(0) // optimistic locking
+
+  payments  Payment[]
+  movements CashMovement[]
+
+  @@index([organizationId])
+  @@index([organizationId, closedAt])
+  @@map("cash_register")
+}
+
+model CashMovement {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cashRegisterId String
+  cashRegister   CashRegister     @relation(fields: [cashRegisterId], references: [id], onDelete: Cascade)
+  type           CashMovementType
+  amount         Decimal          @db.Decimal(10, 2)
+  reason         String
+  createdById    String
+  createdBy      User             @relation(fields: [createdById], references: [id])
+  createdAt      DateTime         @default(now())
+
+  @@index([organizationId])
+  @@index([cashRegisterId])
+  @@index([cashRegisterId, createdAt])
+  @@map("cash_movement")
+}
+
+model PrintJob {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orderId        String?
+  order          Order?         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type           PrintJobType
+  status         PrintJobStatus @default(queued)
+  attempts       Int            @default(0)
+  payload        Json
+  errorMessage   String?
+  printedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([organizationId, status])
+  @@index([orderId])
+  @@map("print_job")
+}
+
+model DeliveryNeighborhoodFee {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  neighborhood   String
+  fee            Decimal      @db.Decimal(10, 2)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, neighborhood])
+  @@index([organizationId])
+  @@map("delivery_fee")
+}
