@@ -9,6 +9,7 @@ import {
 } from 'fastify-type-provider-zod';
 
 import { env } from './lib/env.js';
+import { categoryRoutes } from './modules/categories/routes.js';
 import { authPlugin } from './plugins/auth.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { prismaPlugin } from './plugins/prisma.js';
@@ -57,6 +58,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(healthRoutes, { prefix: '/api' });
   await app.register(authRoutes, { prefix: '/api/v1' });
+  await app.register(categoryRoutes, { prefix: '/api/v1/categories' });
 
   return app;
 }

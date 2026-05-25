@@ -7,6 +7,7 @@ dist
 build
 .next
 out
+*.tsbuildinfo
 
 # Turbo
 .turbo
@@ -49,3 +50,5 @@ uploads/
 .claude 
 .agents/*
 .codex 
+context-front.md
+docs/*
