@@ -1,16 +1,18 @@
-import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import sensible from '@fastify/sensible';
+import Fastify, { type FastifyInstance } from 'fastify';
 import {
+  type ZodTypeProvider,
   serializerCompiler,
   validatorCompiler,
-  type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 
 import { env } from './lib/env.js';
-import { prismaPlugin } from './plugins/prisma.js';
+import { authPlugin } from './plugins/auth.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
+import { prismaPlugin } from './plugins/prisma.js';
+import { authRoutes } from './routes/auth.js';
 import { healthRoutes } from './routes/health.js';
 
 declare module 'fastify' {
@@ -50,9 +52,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
   await app.register(sensible);
   await app.register(prismaPlugin);
+  await app.register(authPlugin);
   await app.register(errorHandlerPlugin);
 
   await app.register(healthRoutes, { prefix: '/api' });
+  await app.register(authRoutes, { prefix: '/api/v1' });
 
   return app;
 }

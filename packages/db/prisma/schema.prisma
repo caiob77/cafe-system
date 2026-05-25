@@ -110,6 +110,7 @@ model Organization {
   logo      String?
   metadata  String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   // Custom café fields
   deliveryEnabled    Boolean  @default(false)
@@ -161,6 +162,7 @@ model Invitation {
   expiresAt      DateTime
   inviterId      String
   inviter        User         @relation("inviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
 
   @@index([organizationId])
   @@index([email])

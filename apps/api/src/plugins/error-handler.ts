@@ -1,7 +1,7 @@
-import fp from 'fastify-plugin';
-import type { FastifyError } from 'fastify';
-import { ZodError } from 'zod';
 import { Prisma } from '@cafe/db';
+import type { FastifyError } from 'fastify';
+import fp from 'fastify-plugin';
+import { ZodError } from 'zod';
 
 // Formato padrão de erro do CLAUDE.md:
 //   { error: { code: string, message: string, details?: unknown } }
@@ -27,9 +27,7 @@ export const errorHandlerPlugin = fp(
     app.setErrorHandler((err, req, reply) => {
       // 1) Validação Zod (manual ou via type provider)
       if (err instanceof ZodError) {
-        return reply
-          .code(422)
-          .send(build('validation_error', 'Dados inválidos', err.issues));
+        return reply.code(422).send(build('validation_error', 'Dados inválidos', err.issues));
       }
 
       // 2) Prisma — erros conhecidos
@@ -48,17 +46,13 @@ export const errorHandlerPlugin = fp(
           return reply.code(409).send(build('fk_violation', 'Referência inválida'));
         }
         req.log.warn({ err }, 'PrismaClientKnownRequestError');
-        return reply
-          .code(400)
-          .send(build('db_error', err.message, { prismaCode: err.code }));
+        return reply.code(400).send(build('db_error', err.message, { prismaCode: err.code }));
       }
 
       // 3) Fastify error com statusCode setado (ex: @fastify/sensible httpErrors)
       const fastifyErr = err as FastifyError;
       const status = fastifyErr.statusCode ?? 500;
-      const message =
-        fastifyErr.message ??
-        (err instanceof Error ? err.message : 'unknown error');
+      const message = fastifyErr.message ?? (err instanceof Error ? err.message : 'unknown error');
 
       if (status >= 500) {
         req.log.error({ err }, 'Erro 5xx não tratado');
@@ -67,9 +61,7 @@ export const errorHandlerPlugin = fp(
           .send(
             build(
               'internal_error',
-              req.server.config.NODE_ENV === 'production'
-                ? 'Erro interno'
-                : message,
+              req.server.config.NODE_ENV === 'production' ? 'Erro interno' : message,
             ),
           );
       }

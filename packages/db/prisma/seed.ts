@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { hashPassword } from '../src/password.js';
 
 const prisma = new PrismaClient();
@@ -265,9 +265,7 @@ async function main() {
   console.log('\nSeed concluído!');
   console.log(`  Org: ${org.name} (slug: ${org.slug})`);
   console.log(`  Owner: ${DEMO.email} / senha: ${DEMO.password}`);
-  console.log(
-    '  IMPORTANTE: o hash usa scrypt nos mesmos params do Better Auth default.',
-  );
+  console.log('  IMPORTANTE: o hash usa scrypt nos mesmos params do Better Auth default.');
   console.log(
     '  Se o Better Auth for configurado com outro hasher no Passo 1.4, rode `pnpm db:seed` de novo.\n',
   );

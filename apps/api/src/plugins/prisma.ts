@@ -1,5 +1,5 @@
+import { type PrismaClient, prisma } from '@cafe/db';
 import fp from 'fastify-plugin';
-import { prisma, type PrismaClient } from '@cafe/db';
 
 declare module 'fastify' {
   interface FastifyInstance {
