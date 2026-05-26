@@ -355,7 +355,9 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
         });
       });
 
-      return reply.code(201).send({ data: serializeOrder(created) });
+      const payload = serializeOrder(created);
+      request.server.realtime.publish(tenantId, { type: 'order_created', payload });
+      return reply.code(201).send({ data: payload });
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -632,7 +634,12 @@ export async function updateOrderStatusHandler(request: FastifyRequest, reply: F
     include: ORDER_INCLUDE,
   });
 
-  return { data: serializeOrder(updated) };
+  const payload = serializeOrder(updated);
+  request.server.realtime.publish(tenantId, {
+    type: body.status === 'cancelled' ? 'order_cancelled' : 'order_status_changed',
+    payload,
+  });
+  return { data: payload };
 }
 
 export type OrderStatusForKitchen = OrderStatusValue;

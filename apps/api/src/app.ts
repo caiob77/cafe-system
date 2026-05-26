@@ -21,6 +21,7 @@ import { tableRoutes } from './modules/tables/routes.js';
 import { authPlugin } from './plugins/auth.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { prismaPlugin } from './plugins/prisma.js';
+import { realtimePlugin } from './plugins/realtime.js';
 import { authRoutes } from './routes/auth.js';
 import { healthRoutes } from './routes/health.js';
 
@@ -62,6 +63,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(sensible);
   await app.register(prismaPlugin);
   await app.register(authPlugin);
+  await app.register(realtimePlugin);
   await app.register(errorHandlerPlugin);
 
   await app.register(healthRoutes, { prefix: '/api' });
