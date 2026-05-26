@@ -28,6 +28,7 @@ export function RealtimeSync() {
   useEffect(() => {
     let closed = false;
     let socket: WebSocket | null = null;
+    let connectTimer: ReturnType<typeof setTimeout> | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     function invalidateOrderState(event: RealtimeEvent) {
@@ -45,6 +46,7 @@ export function RealtimeSync() {
     }
 
     function connect() {
+      if (closed) return;
       socket = new WebSocket(realtimeUrl());
 
       socket.addEventListener('message', (message) => {
@@ -68,12 +70,19 @@ export function RealtimeSync() {
       });
     }
 
-    connect();
+    connectTimer = setTimeout(connect, 100);
 
     return () => {
       closed = true;
+      if (connectTimer) clearTimeout(connectTimer);
       if (retryTimer) clearTimeout(retryTimer);
-      socket?.close();
+      if (
+        socket &&
+        socket.readyState !== WebSocket.CLOSING &&
+        socket.readyState !== WebSocket.CLOSED
+      ) {
+        socket.close();
+      }
     };
   }, [queryClient]);
 

@@ -63,6 +63,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cors, {
     origin: env.NODE_ENV === 'production' ? env.WEB_URL : true,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
   await app.register(sensible);
   await app.register(prismaPlugin);
