@@ -83,23 +83,90 @@ docker compose up -d postgres redis
 pnpm -F @cafe/db db:migrate
 ```
 
-6. Popule dados iniciais:
+6. Configure e popule dados iniciais:
+
+O seed atual foi preparado para iniciar uma base real em modelo multi-tenant.
+Ele cria o primeiro cliente/tenant da plataforma. No seu caso, esse primeiro
+tenant e o Cafe Beniel.
+
+Ele cria:
+
+- 1 organizacao/tenant.
+- 1 usuario owner.
+- Catalogo inicial com categorias e produtos, se `SEED_LOAD_INITIAL_CATALOG=true`.
+- Mesas.
+- Configuracao basica de delivery.
+- Impressora/agente inicial com token proprio.
+
+Atencao: o seed apaga os dados existentes antes de recriar a base. Por isso ele
+so roda quando `SEED_CONFIRM_RESET=true` estiver definido.
+
+No `.env`, preencha pelo menos:
+
+```env
+SEED_CONFIRM_RESET=true
+SEED_OWNER_EMAIL=seu@email.com
+SEED_OWNER_PASSWORD=uma-senha-forte-com-12-ou-mais
+SEED_OWNER_NAME=Seu Nome
+SEED_ORG_NAME="Nome Da Empresa"
+SEED_ORG_SLUG="Nome-Da-Empresa"
+SEED_ORG_PHONE="(92) 99999-9999"
+SEED_ORG_ADDRESS="Rua, numero - Bairro - CEP"
+SEED_TABLE_COUNT=10
+SEED_DELIVERY_ENABLED=true
+SEED_DEFAULT_DELIVERY_FEE=0.00
+SEED_LOAD_INITIAL_CATALOG=true
+```
+
+Use `SEED_LOAD_INITIAL_CATALOG=true` para carregar o cardapio inicial do
+primeiro tenant. Para clientes futuros do SaaS, o fluxo correto e criar o tenant
+pelo onboarding/front e cadastrar categorias/produtos pela tela de Cardapio.
+Se quiser rodar o seed sem produtos, use `SEED_LOAD_INITIAL_CATALOG=false`.
+
+Para taxas por bairro, use o formato `Bairro:valor`, separando varios bairros
+por ponto e virgula:
+
+```env
+SEED_DELIVERY_FEES="Centro:5.00;Cidade Nova:7.00;Flores:8.00"
+```
+
+O token da impressora pode ser gerado automaticamente. Deixe vazio:
+
+```env
+SEED_PRINTER_NAME="Impressora principal"
+SEED_PRINTER_TOKEN=
+```
+
+Depois rode:
 
 ```bash
 pnpm -F @cafe/db db:seed
 ```
 
-Usuario seed:
+Ao final, o terminal mostra o `PRINTER_TOKEN` gerado. Guarde esse valor e use no
+`apps/print-agent/.env`. O banco guarda somente o hash, entao o token plain nao
+pode ser recuperado depois.
+
+Exemplo de saida:
 
 ```txt
-Email: owner@cafe.local
-Senha: admin1234
+Seed concluido!
+  Org: Cafe Beniel (slug: cafe-beniel)
+  Owner: seu@email.com
+  Categorias: 5
+  Produtos: 72
+  Mesas: 10
+  Taxas de bairro: 3
+
+  Print agent:
+    PRINTER_TOKEN=pd_xxxxxxxxxxxxxxxxx
 ```
 
-Token seed do print-agent local:
+Se preferir definir um token fixo, preencha `SEED_PRINTER_TOKEN` antes de rodar
+o seed. Use um valor longo com prefixo `pd_`:
 
-```txt
-PRINTER_TOKEN=pd_local_dev_4Yh3Kx9mN2pQ7vR8sT1uV5wXyZaBcDeFgHiJkLmNoPqRs
+```env
+SEED_PRINTER_TOKEN=pd_token_longo_gerado_com_seguranca
 ```
 
 7. Configure o `apps/print-agent/.env`:
@@ -113,7 +180,7 @@ Em ambiente local, use:
 ```env
 API_BASE_URL=http://localhost:3333
 API_WS_URL=ws://localhost:3333/api/v1/realtime
-PRINTER_TOKEN=pd_local_dev_4Yh3Kx9mN2pQ7vR8sT1uV5wXyZaBcDeFgHiJkLmNoPqRs
+PRINTER_TOKEN=pd_xxxxxxxxxxxxxxxxx
 ```
 
 8. Suba o projeto:
@@ -249,4 +316,3 @@ Ao alterar `apps/web`, siga o documento [context-front.md](./context-front.md). 
 - Context para escopo de arvore e dados derivados da sessao.
 - Componentes por dominio e containers em `features/[dominio]`.
 - Pages finas no App Router.
-
