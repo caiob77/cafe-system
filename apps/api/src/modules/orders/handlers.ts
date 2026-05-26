@@ -206,7 +206,7 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
         .send(error('customer_required', 'customerId obrigatório para delivery'));
     }
 
-    const [org, customer] = await Promise.all([
+    const [org, customer, deliveryFeesCount] = await Promise.all([
       request.server.prisma.organization.findUnique({
         where: { id: tenantId },
         select: {
@@ -223,6 +223,9 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
           neighborhood: true,
           reference: true,
         },
+      }),
+      request.server.prisma.deliveryNeighborhoodFee.count({
+        where: { organizationId: tenantId },
       }),
     ]);
 
@@ -245,7 +248,39 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
       }
     }
 
-    deliveryFeeToApply = org.defaultDeliveryFee ?? null;
+    if (deliveryFeesCount > 0) {
+      // Modo estrito: só entrega para bairros cadastrados.
+      if (!customer.neighborhood) {
+        return reply
+          .code(422)
+          .send(
+            error(
+              'customer_neighborhood_required',
+              'Cliente sem bairro cadastrado — cadastre o bairro antes de criar o pedido',
+            ),
+          );
+      }
+      const zone = await request.server.prisma.deliveryNeighborhoodFee.findFirst({
+        where: {
+          organizationId: tenantId,
+          neighborhood: { equals: customer.neighborhood, mode: 'insensitive' },
+        },
+        select: { fee: true },
+      });
+      if (!zone) {
+        return reply
+          .code(422)
+          .send(
+            error(
+              'delivery_area_unsupported',
+              `Não entregamos no bairro "${customer.neighborhood}"`,
+            ),
+          );
+      }
+      deliveryFeeToApply = zone.fee;
+    } else {
+      deliveryFeeToApply = org.defaultDeliveryFee ?? null;
+    }
 
     if (!deliveryAddressSnapshot) {
       const parts = [customer.address, customer.neighborhood, customer.reference].filter(

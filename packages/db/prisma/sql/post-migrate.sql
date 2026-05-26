@@ -18,6 +18,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS cash_register_one_open_per_org
 
 
 -- ----------------------------------------------------------------------------
+-- 1b) Unique case-insensitive: evita "Centro" e "centro" como bairros distintos
+--     na mesma organização. O @@unique do Prisma é case-sensitive.
+-- ----------------------------------------------------------------------------
+CREATE UNIQUE INDEX IF NOT EXISTS delivery_fee_org_neighborhood_lower
+  ON "delivery_fee" ("organizationId", LOWER("neighborhood"));
+
+
+-- ----------------------------------------------------------------------------
 -- 2) CHECK: total consistente quando o pedido está finalizado.
 --    Antes de "finished", subtotal/total podem estar em construção e divergir.
 --    A partir de "finished" tem de bater na conta.
