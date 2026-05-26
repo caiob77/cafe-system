@@ -4,7 +4,8 @@ import fp from 'fastify-plugin';
 export type RealtimeEvent =
   | { type: 'order_created'; payload: Record<string, unknown> }
   | { type: 'order_status_changed'; payload: Record<string, unknown> }
-  | { type: 'order_cancelled'; payload: Record<string, unknown> };
+  | { type: 'order_cancelled'; payload: Record<string, unknown> }
+  | { type: 'print_job_queued'; payload: Record<string, unknown> };
 
 declare module 'fastify' {
   interface FastifyInstance {

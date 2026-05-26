@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@cafe/db';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { buildPaymentReceipt } from '../print-jobs/builders.js';
 import { createPaymentSchema, orderPaymentsParamSchema } from './schemas.js';
 
 const ZERO = new Prisma.Decimal(0);
@@ -199,6 +200,47 @@ export async function createOrderPaymentHandler(request: FastifyRequest, reply: 
     }
 
     const remaining = result.order.total.sub(result.paid);
+
+    if (result.order.status === 'finished') {
+      const [fullOrder, allPayments, org] = await Promise.all([
+        request.server.prisma.order.findUnique({
+          where: { id: result.order.id },
+          include: {
+            items: { include: { addons: true } },
+            table: true,
+            customer: true,
+          },
+        }),
+        request.server.prisma.payment.findMany({
+          where: { orderId: result.order.id, organizationId: tenantId },
+          orderBy: { createdAt: 'asc' },
+        }),
+        request.server.prisma.organization.findUnique({
+          where: { id: tenantId },
+          select: { name: true },
+        }),
+      ]);
+      if (fullOrder && org) {
+        const receiptJob = await request.server.prisma.printJob.create({
+          data: {
+            organizationId: tenantId,
+            orderId: fullOrder.id,
+            type: 'payment_receipt',
+            payload: buildPaymentReceipt(fullOrder, allPayments, org.name),
+          },
+        });
+        request.server.realtime.publish(tenantId, {
+          type: 'print_job_queued',
+          payload: {
+            id: receiptJob.id,
+            organizationId: receiptJob.organizationId,
+            orderId: receiptJob.orderId,
+            type: receiptJob.type,
+            status: receiptJob.status,
+          },
+        });
+      }
+    }
 
     return reply.code(201).send({
       data: {

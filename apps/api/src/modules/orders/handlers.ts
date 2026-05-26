@@ -4,6 +4,7 @@ import { Prisma } from '@cafe/db';
 import { type OrderStatusValue, deliveryScheduleSchema, isDeliveryOpen } from '@cafe/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { buildKitchenTicket } from '../print-jobs/builders.js';
 import {
   ACTIVE_ORDER_STATUSES,
   type ResolvedItem,
@@ -357,6 +358,26 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
 
       const payload = serializeOrder(created);
       request.server.realtime.publish(tenantId, { type: 'order_created', payload });
+
+      const printJob = await request.server.prisma.printJob.create({
+        data: {
+          organizationId: tenantId,
+          orderId: created.id,
+          type: 'kitchen_ticket',
+          payload: buildKitchenTicket(created),
+        },
+      });
+      request.server.realtime.publish(tenantId, {
+        type: 'print_job_queued',
+        payload: {
+          id: printJob.id,
+          organizationId: printJob.organizationId,
+          orderId: printJob.orderId,
+          type: printJob.type,
+          status: printJob.status,
+        },
+      });
+
       return reply.code(201).send({ data: payload });
     } catch (err) {
       if (
@@ -481,8 +502,8 @@ export async function addOrderItemHandler(request: FastifyRequest, reply: Fastif
 
   const { subtotal, total } = recalcTotals(allResolvedItems, order);
 
-  const updated = await request.server.prisma.$transaction(async (tx) => {
-    await tx.orderItem.create({
+  const { updated, newItemId } = await request.server.prisma.$transaction(async (tx) => {
+    const created = await tx.orderItem.create({
       data: {
         organizationId: tenantId,
         orderId: order.id,
@@ -503,7 +524,7 @@ export async function addOrderItemHandler(request: FastifyRequest, reply: Fastif
       },
     });
 
-    return tx.order.update({
+    const refreshed = await tx.order.update({
       where: { id: order.id },
       data: {
         subtotal,
@@ -512,6 +533,28 @@ export async function addOrderItemHandler(request: FastifyRequest, reply: Fastif
       },
       include: ORDER_INCLUDE,
     });
+
+    return { updated: refreshed, newItemId: created.id };
+  });
+
+  const partialOrder = { ...updated, items: updated.items.filter((it) => it.id === newItemId) };
+  const printJob = await request.server.prisma.printJob.create({
+    data: {
+      organizationId: tenantId,
+      orderId: updated.id,
+      type: 'kitchen_ticket',
+      payload: buildKitchenTicket(partialOrder),
+    },
+  });
+  request.server.realtime.publish(tenantId, {
+    type: 'print_job_queued',
+    payload: {
+      id: printJob.id,
+      organizationId: printJob.organizationId,
+      orderId: printJob.orderId,
+      type: printJob.type,
+      status: printJob.status,
+    },
   });
 
   return reply.code(201).send({ data: serializeOrder(updated) });

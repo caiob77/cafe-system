@@ -9,3 +9,4 @@ export * from './schemas/payment.schema.js';
 export * from './schemas/customer.schema.js';
 export * from './schemas/delivery.schema.js';
 export * from './schemas/delivery-fee.schema.js';
+export * from './schemas/print-job.schema.js';
