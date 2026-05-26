@@ -186,8 +186,11 @@ PRINTER_TOKEN=pd_xxxxxxxxxxxxxxxxx
 8. Suba o projeto:
 
 ```bash
-pnpm dev
+pnpm dev:api
+pnpm dev:web
 ```
+
+Execute cada comando em um terminal separado. Use `pnpm dev` apenas quando quiser subir todos os apps via Turbo de uma vez.
 
 URLs padrao:
 
@@ -198,7 +201,9 @@ URLs padrao:
 ## Comandos
 
 ```bash
-pnpm dev          # roda apps em modo dev via Turbo
+pnpm dev          # roda todos os apps em modo dev via Turbo
+pnpm dev:api      # roda apenas a API em http://localhost:3333
+pnpm dev:web      # roda apenas o frontend em http://localhost:3000
 pnpm build        # build dos pacotes/apps
 pnpm typecheck    # typecheck do monorepo
 pnpm lint         # Biome check

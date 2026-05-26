@@ -9,6 +9,8 @@
   },
   "scripts": {
     "dev": "turbo run dev",
+    "dev:api": "pnpm -F @cafe/api dev",
+    "dev:web": "pnpm -F @cafe/web dev",
     "build": "turbo run build",
     "lint": "biome check .",
     "format": "biome format --write .",
