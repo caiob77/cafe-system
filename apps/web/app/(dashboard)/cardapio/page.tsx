@@ -1,13 +1,15 @@
-import { BookOpen } from 'lucide-react';
-
-import { SectionPage } from '@/components/layout/section-page';
+import { MenuContainer } from '@/features/cardapio/containers/menu-container';
 
 export default function MenuPage() {
   return (
-    <SectionPage
-      description="Categorias, produtos e adicionais."
-      icon={BookOpen}
-      title="Cardápio"
-    />
+    <div className="flex flex-col gap-6">
+      <header>
+        <h1 className="text-2xl font-semibold">Cardápio</h1>
+        <p className="text-sm text-muted-foreground">
+          Organize categorias, produtos, fotos, disponibilidade e adicionais.
+        </p>
+      </header>
+      <MenuContainer />
+    </div>
   );
 }

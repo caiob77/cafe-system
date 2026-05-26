@@ -10,6 +10,8 @@ import {
 
 import { env } from './lib/env.js';
 import { categoryRoutes } from './modules/categories/routes.js';
+import { productAddonRoutes } from './modules/product-addons/routes.js';
+import { productRoutes } from './modules/products/routes.js';
 import { authPlugin } from './plugins/auth.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { prismaPlugin } from './plugins/prisma.js';
@@ -59,6 +61,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(healthRoutes, { prefix: '/api' });
   await app.register(authRoutes, { prefix: '/api/v1' });
   await app.register(categoryRoutes, { prefix: '/api/v1/categories' });
+  await app.register(productRoutes, { prefix: '/api/v1/products' });
+  await app.register(productAddonRoutes, { prefix: '/api/v1/products/:productId/addons' });
 
   return app;
 }
