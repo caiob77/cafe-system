@@ -4,3 +4,5 @@ export * from './schemas/product.schema.js';
 export * from './schemas/product-addon.schema.js';
 export * from './schemas/table.schema.js';
 export * from './schemas/order.schema.js';
+export * from './schemas/cash-register.schema.js';
+export * from './schemas/payment.schema.js';

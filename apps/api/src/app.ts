@@ -9,8 +9,10 @@ import {
 } from 'fastify-type-provider-zod';
 
 import { env } from './lib/env.js';
+import { cashRegisterRoutes } from './modules/cash-registers/routes.js';
 import { categoryRoutes } from './modules/categories/routes.js';
 import { orderRoutes } from './modules/orders/routes.js';
+import { orderPaymentRoutes } from './modules/payments/routes.js';
 import { productAddonRoutes } from './modules/product-addons/routes.js';
 import { productRoutes } from './modules/products/routes.js';
 import { tableRoutes } from './modules/tables/routes.js';
@@ -67,6 +69,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(productAddonRoutes, { prefix: '/api/v1/products/:productId/addons' });
   await app.register(tableRoutes, { prefix: '/api/v1/tables' });
   await app.register(orderRoutes, { prefix: '/api/v1/orders' });
+  await app.register(orderPaymentRoutes, { prefix: '/api/v1/orders/:id/payments' });
+  await app.register(cashRegisterRoutes, { prefix: '/api/v1/cash-registers' });
 
   return app;
 }
