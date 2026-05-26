@@ -6,3 +6,5 @@ export * from './schemas/table.schema.js';
 export * from './schemas/order.schema.js';
 export * from './schemas/cash-register.schema.js';
 export * from './schemas/payment.schema.js';
+export * from './schemas/customer.schema.js';
+export * from './schemas/delivery.schema.js';

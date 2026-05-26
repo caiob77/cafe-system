@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { Prisma } from '@cafe/db';
-import type { OrderStatusValue } from '@cafe/shared';
+import { type OrderStatusValue, deliveryScheduleSchema, isDeliveryOpen } from '@cafe/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import {
@@ -137,9 +137,8 @@ async function nextDailyNumber(
 
 function recalcTotals(
   items: ResolvedItem[],
-  existing?: Pick<
-    OrderRecord,
-    'discountAmount' | 'serviceChargeAmount' | 'taxAmount' | 'deliveryFee'
+  existing?: Partial<
+    Pick<OrderRecord, 'discountAmount' | 'serviceChargeAmount' | 'taxAmount' | 'deliveryFee'>
   >,
 ) {
   const subtotal = calculateItemsSubtotal(items);
@@ -197,18 +196,73 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
     }
   }
 
+  let deliveryFeeToApply: Prisma.Decimal | null = null;
+  let deliveryAddressSnapshot: string | null = body.deliveryAddress ?? null;
+
   if (body.type === 'delivery') {
     if (!body.customerId) {
       return reply
         .code(422)
         .send(error('customer_required', 'customerId obrigatório para delivery'));
     }
-    const customer = await request.server.prisma.customer.findFirst({
-      where: { id: body.customerId, organizationId: tenantId, deletedAt: null },
-      select: { id: true },
-    });
+
+    const [org, customer] = await Promise.all([
+      request.server.prisma.organization.findUnique({
+        where: { id: tenantId },
+        select: {
+          deliveryEnabled: true,
+          deliverySchedule: true,
+          defaultDeliveryFee: true,
+        },
+      }),
+      request.server.prisma.customer.findFirst({
+        where: { id: body.customerId, organizationId: tenantId, deletedAt: null },
+        select: {
+          id: true,
+          address: true,
+          neighborhood: true,
+          reference: true,
+        },
+      }),
+    ]);
+
     if (!customer) {
       return reply.code(404).send(error('customer_not_found', 'Cliente não encontrado'));
+    }
+
+    if (!org || !org.deliveryEnabled) {
+      return reply
+        .code(409)
+        .send(error('delivery_disabled', 'Delivery está desativado nesta organização'));
+    }
+
+    if (org.deliverySchedule !== null) {
+      const parsed = deliveryScheduleSchema.safeParse(org.deliverySchedule);
+      if (parsed.success && !isDeliveryOpen(parsed.data)) {
+        return reply
+          .code(409)
+          .send(error('delivery_closed', 'Delivery está fechado neste horário'));
+      }
+    }
+
+    deliveryFeeToApply = org.defaultDeliveryFee ?? null;
+
+    if (!deliveryAddressSnapshot) {
+      const parts = [customer.address, customer.neighborhood, customer.reference].filter(
+        (part): part is string => typeof part === 'string' && part.length > 0,
+      );
+      deliveryAddressSnapshot = parts.length > 0 ? parts.join(' - ') : null;
+    }
+
+    if (!deliveryAddressSnapshot) {
+      return reply
+        .code(422)
+        .send(
+          error(
+            'delivery_address_required',
+            'Endereço de entrega obrigatório (informe deliveryAddress ou cadastre no cliente)',
+          ),
+        );
     }
   }
 
@@ -218,7 +272,7 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
   }
 
   const items = resolution.items;
-  const { subtotal, total } = recalcTotals(items);
+  const { subtotal, total } = recalcTotals(items, { deliveryFee: deliveryFeeToApply });
   const orderDate = startOfDayUTC();
 
   for (let attempt = 0; attempt < DAILY_NUMBER_MAX_RETRIES; attempt += 1) {
@@ -238,7 +292,8 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
             customerId: body.type === 'delivery' ? (body.customerId ?? null) : null,
             notes: body.notes ?? null,
             kitchenNotes: body.kitchenNotes ?? null,
-            deliveryAddress: body.deliveryAddress ?? null,
+            deliveryAddress: deliveryAddressSnapshot,
+            deliveryFee: deliveryFeeToApply,
             subtotal,
             total,
             items: {

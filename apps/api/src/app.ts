@@ -11,6 +11,7 @@ import {
 import { env } from './lib/env.js';
 import { cashRegisterRoutes } from './modules/cash-registers/routes.js';
 import { categoryRoutes } from './modules/categories/routes.js';
+import { customerRoutes } from './modules/customers/routes.js';
 import { orderRoutes } from './modules/orders/routes.js';
 import { orderPaymentRoutes } from './modules/payments/routes.js';
 import { productAddonRoutes } from './modules/product-addons/routes.js';
@@ -68,6 +69,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(productRoutes, { prefix: '/api/v1/products' });
   await app.register(productAddonRoutes, { prefix: '/api/v1/products/:productId/addons' });
   await app.register(tableRoutes, { prefix: '/api/v1/tables' });
+  await app.register(customerRoutes, { prefix: '/api/v1/customers' });
   await app.register(orderRoutes, { prefix: '/api/v1/orders' });
   await app.register(orderPaymentRoutes, { prefix: '/api/v1/orders/:id/payments' });
   await app.register(cashRegisterRoutes, { prefix: '/api/v1/cash-registers' });
