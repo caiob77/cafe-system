@@ -18,6 +18,7 @@ import { orderPaymentRoutes } from './modules/payments/routes.js';
 import { printJobRoutes } from './modules/print-jobs/routes.js';
 import { productAddonRoutes } from './modules/product-addons/routes.js';
 import { productRoutes } from './modules/products/routes.js';
+import { reportRoutes } from './modules/reports/routes.js';
 import { tableRoutes } from './modules/tables/routes.js';
 import { authPlugin } from './plugins/auth.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
@@ -79,6 +80,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(orderPaymentRoutes, { prefix: '/api/v1/orders/:id/payments' });
   await app.register(cashRegisterRoutes, { prefix: '/api/v1/cash-registers' });
   await app.register(printJobRoutes, { prefix: '/api/v1/print-jobs' });
+  await app.register(reportRoutes, { prefix: '/api/v1/reports' });
 
   return app;
 }
