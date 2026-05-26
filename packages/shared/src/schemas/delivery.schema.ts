@@ -4,6 +4,16 @@ export const weekdayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as 
 export type WeekdayKey = (typeof weekdayKeys)[number];
 
 const timeString = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Formato HH:MM (24h)');
+const moneyString = z
+  .union([z.string(), z.number()])
+  .transform((value) => (typeof value === 'number' ? value.toString() : value.trim()))
+  .pipe(
+    z
+      .string()
+      .regex(/^\d+(\.\d{1,2})?$/, 'Valor deve ter no máximo 2 casas decimais')
+      .refine((value) => Number(value) >= 0, 'Valor deve ser maior ou igual a zero')
+      .refine((value) => Number(value) <= 99_999_999.99, 'Valor fora do limite'),
+  );
 
 export const deliveryWindowSchema = z
   .object({
@@ -30,8 +40,19 @@ export const deliveryScheduleSchema = z.object({
   sat: deliveryWindowSchema.nullable(),
 });
 
+export const updateDeliverySettingsSchema = z
+  .object({
+    deliveryEnabled: z.boolean().optional(),
+    deliverySchedule: deliveryScheduleSchema.nullable().optional(),
+    defaultDeliveryFee: moneyString.nullable().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Informe ao menos uma configuração para atualizar.',
+  });
+
 export type DeliveryWindow = z.infer<typeof deliveryWindowSchema>;
 export type DeliverySchedule = z.infer<typeof deliveryScheduleSchema>;
+export type UpdateDeliverySettingsInput = z.infer<typeof updateDeliverySettingsSchema>;
 
 const WEEKDAY_INDEX: Record<number, WeekdayKey> = {
   0: 'sun',

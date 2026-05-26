@@ -65,7 +65,7 @@ export const realtimePlugin = fp(
       '/api/v1/realtime',
       {
         websocket: true,
-        preHandler: app.requireAuth,
+        preHandler: app.requirePrinterOrRole(['owner', 'manager', 'attendant', 'kitchen']),
       },
       (socket, request) => {
         const tenantId = request.tenantId;
@@ -91,12 +91,16 @@ export const realtimePlugin = fp(
       },
     );
 
-    app.get('/api/v1/realtime/stats', { preHandler: app.requireAuth }, async (request, reply) => {
-      if (!request.tenantId) {
-        return reply.code(403).send(error('tenant_required', 'Organização ativa obrigatória'));
-      }
-      return { data: { subscribers: app.realtime.subscriberCount(request.tenantId) } };
-    });
+    app.get(
+      '/api/v1/realtime/stats',
+      { preHandler: app.requireRole(['owner', 'manager']) },
+      async (request, reply) => {
+        if (!request.tenantId) {
+          return reply.code(403).send(error('tenant_required', 'Organização ativa obrigatória'));
+        }
+        return { data: { subscribers: app.realtime.subscriberCount(request.tenantId) } };
+      },
+    );
   },
   {
     name: 'realtime',

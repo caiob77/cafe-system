@@ -14,7 +14,7 @@ type MesaDetailContainerProps = {
 };
 
 export function MesaDetailContainer({ tableId }: MesaDetailContainerProps) {
-  const tablesQuery = useTables({ refetchIntervalMs: 5_000 });
+  const tablesQuery = useTables();
 
   if (tablesQuery.isLoading) {
     return (

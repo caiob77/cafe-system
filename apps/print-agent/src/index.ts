@@ -8,17 +8,35 @@ import WebSocket from 'ws';
 type Env = {
   apiBaseUrl: string;
   apiWsUrl: string;
-  sessionCookie: string;
+  printerToken: string;
 };
+
+function assertProductionTransport(apiBaseUrl: string, apiWsUrl: string): void {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  const apiUrl = new URL(apiBaseUrl);
+  const wsUrl = new URL(apiWsUrl);
+
+  if (apiUrl.protocol !== 'https:' || wsUrl.protocol !== 'wss:') {
+    throw new Error('Em produção, configure API_BASE_URL com https:// e API_WS_URL com wss://.');
+  }
+}
 
 function loadEnv(): Env {
   const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:3333';
   const apiWsUrl = process.env.API_WS_URL ?? 'ws://localhost:3333/api/v1/realtime';
-  const sessionCookie = process.env.SESSION_COOKIE;
-  if (!sessionCookie || sessionCookie.trim().length === 0) {
-    throw new Error('SESSION_COOKIE não configurado. Copie o cookie da sessão do web app.');
+  const printerToken = process.env.PRINTER_TOKEN;
+  if (!printerToken || printerToken.trim().length === 0) {
+    throw new Error(
+      'PRINTER_TOKEN não configurado. Gere via POST /api/v1/printer-devices ou use o token do seed.',
+    );
   }
-  return { apiBaseUrl, apiWsUrl, sessionCookie };
+  assertProductionTransport(apiBaseUrl, apiWsUrl);
+  return { apiBaseUrl, apiWsUrl, printerToken };
+}
+
+function authHeaders(env: Env): Record<string, string> {
+  return { Authorization: `Bearer ${env.printerToken}` };
 }
 
 type QueuedEvent = {
@@ -38,7 +56,7 @@ type PrintJobApi = {
 
 async function fetchPrintJob(env: Env, id: string): Promise<PrintJobApi | null> {
   const res = await fetch(`${env.apiBaseUrl}/api/v1/print-jobs/${id}`, {
-    headers: { Cookie: env.sessionCookie },
+    headers: authHeaders(env),
   });
   if (!res.ok) {
     console.error(`[print-agent] GET print-job ${id} falhou: ${res.status}`);
@@ -58,7 +76,7 @@ async function patchStatus(
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      Cookie: env.sessionCookie,
+      ...authHeaders(env),
     },
     body: JSON.stringify({ status, ...(errorMessage ? { errorMessage } : {}) }),
   });
@@ -145,7 +163,7 @@ async function processJob(env: Env, id: string): Promise<void> {
 
 async function syncQueued(env: Env): Promise<void> {
   const res = await fetch(`${env.apiBaseUrl}/api/v1/print-jobs?status=queued`, {
-    headers: { Cookie: env.sessionCookie },
+    headers: authHeaders(env),
   });
   if (!res.ok) {
     console.error(`[print-agent] sync inicial falhou: ${res.status}`);
@@ -158,7 +176,7 @@ async function syncQueued(env: Env): Promise<void> {
 }
 
 function connect(env: Env): void {
-  const ws = new WebSocket(env.apiWsUrl, { headers: { Cookie: env.sessionCookie } });
+  const ws = new WebSocket(env.apiWsUrl, { headers: authHeaders(env) });
 
   ws.on('open', () => {
     console.log('[print-agent] conectado ao WS — sincronizando fila inicial');

@@ -1,13 +1,15 @@
-import { Settings } from 'lucide-react';
-
-import { SectionPage } from '@/components/layout/section-page';
+import { SettingsContainer } from '@/features/configuracoes/containers/settings-container';
 
 export default function SettingsPage() {
   return (
-    <SectionPage
-      description="Dados do café e preferências."
-      icon={Settings}
-      title="Configurações"
-    />
+    <div className="flex flex-col gap-6">
+      <header>
+        <h1 className="text-2xl font-semibold">Configurações</h1>
+        <p className="text-sm text-muted-foreground">
+          Sua conta, o café ativo e áreas de configuração futuras.
+        </p>
+      </header>
+      <SettingsContainer />
+    </div>
   );
 }

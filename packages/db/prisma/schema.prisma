@@ -133,6 +133,7 @@ model Organization {
   cashRegisters   CashRegister[]
   cashMovements   CashMovement[]
   printJobs       PrintJob[]
+  printerDevices  PrinterDevice[]
   deliveryFees    DeliveryNeighborhoodFee[]
 
   @@map("organization")
@@ -500,6 +501,25 @@ model PrintJob {
   @@index([organizationId, status])
   @@index([orderId])
   @@map("print_job")
+}
+
+// Bearer token de impressora/agente de impressão. Identidade M2M — não tem
+// usuário associado. O token plain só é mostrado uma vez na criação; o DB
+// guarda apenas o SHA-256 (espaço de busca de 32 bytes random é grande o
+// suficiente para dispensar salt/scrypt e permite lookup indexado).
+model PrinterDevice {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  tokenHash      String       @unique
+  lastSeenAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@map("printer_device")
 }
 
 model DeliveryNeighborhoodFee {

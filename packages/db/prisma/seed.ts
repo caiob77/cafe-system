@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { hashPassword } from '../src/password.js';
 
@@ -9,6 +10,10 @@ const DEMO = {
   ownerName: 'Caio (Owner)',
   orgName: 'Café Beniel',
   orgSlug: 'cafe-beniel',
+  // Token fixo de DESENVOLVIMENTO para o print-agent autenticar sem precisar
+  // emitir um via API. Em produção: criar via POST /api/v1/printer-devices.
+  printerName: 'Impressora Dev (placeholder)',
+  printerToken: 'pd_local_dev_4Yh3Kx9mN2pQ7vR8sT1uV5wXyZaBcDeFgHiJkLmNoPqRs',
 };
 
 async function main() {
@@ -19,6 +24,7 @@ async function main() {
   await prisma.payment.deleteMany();
   await prisma.cashMovement.deleteMany();
   await prisma.printJob.deleteMany();
+  await prisma.printerDevice.deleteMany();
   await prisma.order.deleteMany();
   await prisma.cashRegister.deleteMany();
   await prisma.productAddon.deleteMany();
@@ -262,13 +268,25 @@ async function main() {
     ],
   });
 
+  console.log('Criando printer device placeholder...');
+  await prisma.printerDevice.create({
+    data: {
+      organizationId: org.id,
+      name: DEMO.printerName,
+      tokenHash: createHash('sha256').update(DEMO.printerToken).digest('hex'),
+    },
+  });
+
   console.log('\nSeed concluído!');
   console.log(`  Org: ${org.name} (slug: ${org.slug})`);
   console.log(`  Owner: ${DEMO.email} / senha: ${DEMO.password}`);
   console.log('  IMPORTANTE: o hash usa scrypt nos mesmos params do Better Auth default.');
   console.log(
-    '  Se o Better Auth for configurado com outro hasher no Passo 1.4, rode `pnpm db:seed` de novo.\n',
+    '  Se o Better Auth for configurado com outro hasher no Passo 1.4, rode `pnpm db:seed` de novo.',
   );
+  console.log('\n  Print agent (dev):');
+  console.log(`    PRINTER_TOKEN=${DEMO.printerToken}`);
+  console.log('  Em produção, gere via POST /api/v1/printer-devices.\n');
 }
 
 main()

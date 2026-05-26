@@ -1,9 +1,15 @@
-import { ChefHat } from 'lucide-react';
-
-import { SectionPage } from '@/components/layout/section-page';
+import { KitchenBoardContainer } from '@/features/cozinha/containers/kitchen-board-container';
 
 export default function KitchenPage() {
   return (
-    <SectionPage description="Pedidos enviados para preparo." icon={ChefHat} title="Cozinha" />
+    <div className="flex flex-col gap-6">
+      <header>
+        <h1 className="text-2xl font-semibold">Cozinha</h1>
+        <p className="text-sm text-muted-foreground">
+          Pedidos em preparo. Avance o status conforme finaliza cada etapa.
+        </p>
+      </header>
+      <KitchenBoardContainer />
+    </div>
   );
 }

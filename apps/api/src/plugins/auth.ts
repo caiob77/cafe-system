@@ -3,10 +3,12 @@ import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastif
 import fp from 'fastify-plugin';
 
 import { type AppRole, type AuthSession, auth } from '../lib/auth.js';
+import { extractBearerToken, hashPrinterToken } from '../lib/printer-token.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
     requireAuth: preHandlerHookHandler;
+    requirePrinterOrRole: (roles: AppRole | AppRole[]) => preHandlerHookHandler;
     requireRole: (roles: AppRole | AppRole[]) => preHandlerHookHandler;
   }
 
@@ -14,6 +16,7 @@ declare module 'fastify' {
     authSession: AuthSession | null;
     tenantId: string | null;
     role: AppRole | null;
+    printerDeviceId: string | null;
   }
 }
 
@@ -35,12 +38,36 @@ function activeOrganizationId(session: AuthSession): string | undefined {
   );
 }
 
+async function resolvePrinterAuth(request: FastifyRequest): Promise<boolean> {
+  const token = extractBearerToken(request.headers.authorization);
+  if (!token) return false;
+
+  const device = await request.server.prisma.printerDevice.findFirst({
+    where: { tokenHash: hashPrinterToken(token), revokedAt: null },
+  });
+  if (!device) return false;
+
+  request.tenantId = device.organizationId;
+  request.printerDeviceId = device.id;
+
+  // Atualiza lastSeenAt em fire-and-forget. Não bloqueia o request e ignora
+  // falha — não vale derrubar uma autenticação válida por causa de telemetria.
+  void request.server.prisma.printerDevice
+    .update({ where: { id: device.id }, data: { lastSeenAt: new Date() } })
+    .catch((err) => request.log.warn({ err, deviceId: device.id }, 'lastSeenAt update falhou'));
+
+  return true;
+}
+
 async function setRequestAuthContext(request: FastifyRequest): Promise<void> {
   request.authSession = null;
   request.tenantId = null;
   request.role = null;
+  request.printerDeviceId = null;
 
   if (isAuthRoute(request)) return;
+
+  if (await resolvePrinterAuth(request)) return;
 
   const session = await auth.api.getSession({
     headers: fromNodeHeaders(request.headers),
@@ -65,16 +92,37 @@ async function setRequestAuthContext(request: FastifyRequest): Promise<void> {
   request.role = member.role;
 }
 
+function hasHumanSession(request: FastifyRequest): boolean {
+  return request.authSession !== null;
+}
+
 export const authPlugin = fp(
   async (app) => {
     app.decorateRequest('authSession', null);
     app.decorateRequest('tenantId', null);
     app.decorateRequest('role', null);
+    app.decorateRequest('printerDeviceId', null);
 
     app.decorate('requireAuth', async (request: FastifyRequest, reply: FastifyReply) => {
-      if (!request.authSession) {
+      if (!hasHumanSession(request)) {
         return reply.code(401).send(error('unauthorized', 'Sessão obrigatória'));
       }
+    });
+
+    app.decorate('requirePrinterOrRole', (roles: AppRole | AppRole[]) => {
+      const allowed = Array.isArray(roles) ? roles : [roles];
+
+      return async (request, reply) => {
+        if (request.printerDeviceId) return;
+
+        if (!request.authSession) {
+          return reply.code(401).send(error('unauthorized', 'Sessão obrigatória'));
+        }
+
+        if (!request.role || !allowed.includes(request.role)) {
+          return reply.code(403).send(error('forbidden', 'Permissão insuficiente'));
+        }
+      };
     });
 
     app.decorate('requireRole', (roles: AppRole | AppRole[]) => {

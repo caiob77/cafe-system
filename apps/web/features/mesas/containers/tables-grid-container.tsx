@@ -26,7 +26,7 @@ export function TablesGridContainer() {
   const role = session.role;
   const canManage = role !== null && MANAGE_ROLES.has(role);
 
-  const tablesQuery = useTables({ refetchIntervalMs: 5_000 });
+  const tablesQuery = useTables();
   const createTable = useCreateTable();
   const updateTable = useUpdateTable();
   const deleteTable = useDeleteTable();

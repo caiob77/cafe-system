@@ -80,6 +80,7 @@ export type CreateOrderPayload = {
   type: OrderType;
   tableId?: string | null;
   customerId?: string | null;
+  deliveryAddress?: string | null;
   notes?: string | null;
   kitchenNotes?: string | null;
   idempotencyKey?: string;

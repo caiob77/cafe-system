@@ -13,6 +13,7 @@ type CartSummaryProps = {
   items: DraftOrderItem[];
   notes: string;
   submitting: boolean;
+  confirmDisabled?: boolean;
   onChangeNotes: (notes: string) => void;
   onEdit: (item: DraftOrderItem) => void;
   onRemove: (tempId: string) => void;
@@ -27,6 +28,7 @@ export function CartSummary({
   onEdit,
   onRemove,
   onConfirm,
+  confirmDisabled = false,
 }: CartSummaryProps) {
   const subtotal = calculateDraftSubtotal(items);
   const empty = items.length === 0;
@@ -114,7 +116,12 @@ export function CartSummary({
         <span className="text-lg font-semibold text-primary">{formatPrice(subtotal)}</span>
       </div>
 
-      <Button disabled={empty || submitting} onClick={onConfirm} size="default" type="button">
+      <Button
+        disabled={empty || submitting || confirmDisabled}
+        onClick={onConfirm}
+        size="default"
+        type="button"
+      >
         {submitting ? 'Enviando...' : 'Confirmar pedido'}
       </Button>
     </aside>

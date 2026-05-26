@@ -4,11 +4,12 @@ Sistema SaaS multi-tenant para operacao de cafes da manha: pedidos de mesa e del
 
 ## Status
 
-**Fase atual:** Fase 1 concluida.
+**Fase atual:** base SaaS operacional com cardapio, pedidos, cozinha, caixa,
+relatorios, configuracoes e fluxo inicial de impressao.
 
-O projeto ja possui monorepo, banco PostgreSQL com Prisma, API Fastify, Better Auth com organizacoes e frontend Next.js com login, registro, dashboard protegido e logout.
-
-Proxima fase planejada: **Fase 2 - Cardapio**, comecando pelo **Passo 2.1 - API de categorias**.
+O projeto ja possui monorepo, banco PostgreSQL com Prisma, API Fastify,
+Better Auth com organizacoes, frontend Next.js protegido e print-agent local
+autenticado por token de impressora.
 
 ## Stack
 
@@ -33,7 +34,7 @@ cafe-system/
 ├── apps/
 │   ├── api/          # API Fastify
 │   ├── web/          # App Next.js
-│   └── print-agent/  # Agente local de impressao futura
+│   └── print-agent/  # Agente local de impressao
 ├── packages/
 │   ├── db/           # Prisma schema, migrations, seed e client
 │   └── shared/       # Tipos/schemas compartilhados
@@ -95,7 +96,27 @@ Email: owner@cafe.local
 Senha: admin1234
 ```
 
-7. Suba o projeto:
+Token seed do print-agent local:
+
+```txt
+PRINTER_TOKEN=pd_local_dev_4Yh3Kx9mN2pQ7vR8sT1uV5wXyZaBcDeFgHiJkLmNoPqRs
+```
+
+7. Configure o `apps/print-agent/.env`:
+
+```bash
+cp apps/print-agent/.env.example apps/print-agent/.env
+```
+
+Em ambiente local, use:
+
+```env
+API_BASE_URL=http://localhost:3333
+API_WS_URL=ws://localhost:3333/api/v1/realtime
+PRINTER_TOKEN=pd_local_dev_4Yh3Kx9mN2pQ7vR8sT1uV5wXyZaBcDeFgHiJkLmNoPqRs
+```
+
+8. Suba o projeto:
 
 ```bash
 pnpm dev
@@ -143,6 +164,82 @@ GET /api/v1/auth/owner-only
 
 O frontend usa cookies de sessao do Better Auth e protege o dashboard via middleware.
 
+## Impressao
+
+O `apps/print-agent` e o processo local que conecta na API, escuta eventos em
+WebSocket e processa jobs de impressao. Enquanto nao houver impressora fisica,
+ele simula a impressao no console.
+
+Para rodar apenas o agente:
+
+```bash
+pnpm -F @cafe/print-agent dev
+```
+
+Quando conectado corretamente, o log esperado e:
+
+```txt
+[print-agent] conectado ao WS -- sincronizando fila inicial
+```
+
+### Autenticacao da impressora
+
+Impressoras/agentes nao usam cookie de usuario. Eles usam um token proprio com
+prefixo `pd_`, enviado em HTTP e no handshake WebSocket:
+
+```http
+Authorization: Bearer pd_xxxxxxxxxxxxxxxxx
+```
+
+O token plain e retornado uma unica vez na criacao da impressora. O banco guarda
+somente o hash SHA-256 desse token.
+
+Rotas de gestao de impressoras, acessiveis para `owner` ou `manager`:
+
+```txt
+GET    /api/v1/printer-devices
+POST   /api/v1/printer-devices
+DELETE /api/v1/printer-devices/:id
+```
+
+Exemplo para cadastrar uma impressora real:
+
+```bash
+curl -X POST http://localhost:3333/api/v1/printer-devices \
+  -H 'Content-Type: application/json' \
+  -H 'Cookie: better-auth.session_token=...' \
+  -d '{"name":"Impressora Balcao"}'
+```
+
+Copie o `token` retornado para o `.env` da maquina onde o agente roda:
+
+```env
+PRINTER_TOKEN=pd_xxxxxxxxxxxxxxxxx
+```
+
+O token de impressora tem permissao estreita: pode conectar ao realtime e operar
+jobs de impressao. Ele nao passa em rotas administrativas nem em rotas humanas
+protegidas por role.
+
+### Seguranca em producao
+
+Em producao, configure obrigatoriamente TLS:
+
+```env
+API_BASE_URL=https://api.seu-dominio.com
+API_WS_URL=wss://api.seu-dominio.com/api/v1/realtime
+```
+
+O print-agent aborta em `NODE_ENV=production` se `API_BASE_URL` nao usar
+`https://` ou se `API_WS_URL` nao usar `wss://`.
+
+Se um token vazar, revogue a impressora:
+
+```bash
+curl -X DELETE http://localhost:3333/api/v1/printer-devices/<id> \
+  -H 'Cookie: better-auth.session_token=...'
+```
+
 ## Frontend
 
 Ao alterar `apps/web`, siga o documento [context-front.md](./context-front.md). Ele define a arquitetura obrigatoria para frontend:
@@ -153,42 +250,3 @@ Ao alterar `apps/web`, siga o documento [context-front.md](./context-front.md). 
 - Componentes por dominio e containers em `features/[dominio]`.
 - Pages finas no App Router.
 
-## Checkpoint da Fase 1
-
-Documento completo: [docs/checkpoints/fase-1.md](./docs/checkpoints/fase-1.md).
-
-Fase 1 concluida com:
-
-- Monorepo configurado com pnpm workspaces e Turborepo.
-- Biome e tsconfig base configurados.
-- Docker Compose com PostgreSQL e Redis.
-- Prisma schema completo com migrations.
-- Seed com tenant/organization, usuario owner, categorias, produtos e mesas.
-- API Fastify com CORS, Helmet, Prisma plugin, error handler e health check.
-- Better Auth integrado com Prisma adapter e organization plugin.
-- Roles: `owner`, `manager`, `attendant`, `kitchen`.
-- Hook de autenticacao injetando sessao, `tenantId` e `role`.
-- Role guard no backend.
-- App Next.js base com Tailwind, auth client, login, registro, dashboard protegido e logout.
-- Providers base do frontend: React Query, Redux e contexto de sessao UI.
-
-Validacoes realizadas:
-
-```bash
-pnpm typecheck
-pnpm lint
-pnpm -F @cafe/web build
-```
-
-Observacao: `pnpm lint` passa com warnings conhecidos no seed sobre non-null assertions.
-
-## Commits sugeridos da Fase 1
-
-```txt
-feat: initialize cafe system foundation
-feat: configure prisma schema and seed
-feat: configure fastify api foundation
-feat: configure better auth backend
-feat: configure next auth frontend
-docs: add phase 1 checkpoint
-```

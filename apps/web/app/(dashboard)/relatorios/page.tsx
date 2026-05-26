@@ -1,9 +1,15 @@
-import { BarChart3 } from 'lucide-react';
-
-import { SectionPage } from '@/components/layout/section-page';
+import { ReportsContainer } from '@/features/relatorios/containers/reports-container';
 
 export default function ReportsPage() {
   return (
-    <SectionPage description="Indicadores de vendas e caixa." icon={BarChart3} title="Relatórios" />
+    <div className="flex flex-col gap-6">
+      <header>
+        <h1 className="text-2xl font-semibold">Relatórios</h1>
+        <p className="text-sm text-muted-foreground">
+          Indicadores de vendas, ticket médio, produtos e pagamentos por período.
+        </p>
+      </header>
+      <ReportsContainer />
+    </div>
   );
 }

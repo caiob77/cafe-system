@@ -15,7 +15,7 @@ const KANBAN_COLUMNS: OrderStatus[] = ['pending', 'preparing', 'ready', 'deliver
 
 export function OrdersKanbanContainer() {
   const router = useRouter();
-  const ordersQuery = useOrders({ active: true, refetchIntervalMs: 5_000 });
+  const ordersQuery = useOrders({ active: true });
   const updateStatus = useUpdateOrderStatus();
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

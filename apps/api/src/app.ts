@@ -14,8 +14,10 @@ import { categoryRoutes } from './modules/categories/routes.js';
 import { customerRoutes } from './modules/customers/routes.js';
 import { deliveryFeeRoutes } from './modules/delivery-fees/routes.js';
 import { orderRoutes } from './modules/orders/routes.js';
+import { organizationRoutes } from './modules/organizations/routes.js';
 import { orderPaymentRoutes } from './modules/payments/routes.js';
 import { printJobRoutes } from './modules/print-jobs/routes.js';
+import { printerDeviceRoutes } from './modules/printer-devices/routes.js';
 import { productAddonRoutes } from './modules/product-addons/routes.js';
 import { productRoutes } from './modules/products/routes.js';
 import { reportRoutes } from './modules/reports/routes.js';
@@ -76,10 +78,12 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(tableRoutes, { prefix: '/api/v1/tables' });
   await app.register(customerRoutes, { prefix: '/api/v1/customers' });
   await app.register(deliveryFeeRoutes, { prefix: '/api/v1/delivery-fees' });
+  await app.register(organizationRoutes, { prefix: '/api/v1/organization' });
   await app.register(orderRoutes, { prefix: '/api/v1/orders' });
   await app.register(orderPaymentRoutes, { prefix: '/api/v1/orders/:id/payments' });
   await app.register(cashRegisterRoutes, { prefix: '/api/v1/cash-registers' });
   await app.register(printJobRoutes, { prefix: '/api/v1/print-jobs' });
+  await app.register(printerDeviceRoutes, { prefix: '/api/v1/printer-devices' });
   await app.register(reportRoutes, { prefix: '/api/v1/reports' });
 
   return app;
