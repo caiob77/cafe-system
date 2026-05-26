@@ -16,7 +16,7 @@
     "db:studio": "dotenv -e ../../.env -- prisma studio",
     "db:seed": "dotenv -e ../../.env -- prisma db seed",
     "db:reset": "dotenv -e ../../.env -- prisma migrate reset",
-    "db:post-migrate": "dotenv -e ../../.env -- bash -c 'docker exec -i cafe-postgres psql \"$DATABASE_URL\" < prisma/sql/post-migrate.sql'",
+    "db:post-migrate": "dotenv -e ../../.env -- bash -c 'docker exec -i cafe-postgres psql -U cafe -d cafe < prisma/sql/post-migrate.sql'",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit"
   },
