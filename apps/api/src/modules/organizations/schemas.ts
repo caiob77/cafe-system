@@ -1,1 +1,5 @@
-export { updateDeliverySettingsSchema } from '@cafe/shared';
+export {
+  completeSetupSchema,
+  updateDeliverySettingsSchema,
+  updateOrganizationProfileSchema,
+} from '@cafe/shared';

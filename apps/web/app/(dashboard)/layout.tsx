@@ -3,12 +3,19 @@ import { redirect } from 'next/navigation';
 import { LogoutButton } from '@/components/layout/logout-button';
 import { MobileNav, Sidebar } from '@/components/layout/sidebar';
 import { SessionUIProvider } from '@/features/auth/context/session-ui-provider';
-import { getCurrentUser } from '@/lib/server-api';
+import { getCurrentOrganization, getCurrentUser } from '@/lib/server-api';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getCurrentUser();
 
   if (!session) redirect('/login');
+
+  if (session.data.tenantId) {
+    const org = await getCurrentOrganization();
+    if (org && !org.data.setupCompleted && session.data.role === 'owner') {
+      redirect('/setup');
+    }
+  }
 
   return (
     <SessionUIProvider session={session.data}>

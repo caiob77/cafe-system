@@ -1,6 +1,17 @@
 'use client';
 
-import { BookOpen, Building2, ChefHat, Mail, Printer, ShieldCheck, Truck, UserCircle } from 'lucide-react';
+import {
+  BookOpen,
+  Building2,
+  ChefHat,
+  Crown,
+  Mail,
+  Printer,
+  ShieldCheck,
+  Truck,
+  UserCircle,
+} from 'lucide-react';
+import Link from 'next/link';
 
 import { useSessionUI } from '@/features/auth/context/session-ui-provider';
 
@@ -26,7 +37,8 @@ const futureSections = [
   {
     icon: Printer,
     title: 'Impressão térmica',
-    description: 'Status do agente de impressão e configuração de impressoras (em desenvolvimento).',
+    description:
+      'Status do agente de impressão e configuração de impressoras (em desenvolvimento).',
   },
   {
     icon: Truck,
@@ -82,6 +94,19 @@ export function SettingsContainer() {
             <dd className="break-all font-mono text-xs">{session.session.id}</dd>
           </dl>
         </div>
+
+        <Link
+          className="flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-sm transition hover:border-primary hover:shadow"
+          href="/configuracoes/plano"
+        >
+          <div className="flex items-center gap-2">
+            <Crown className="h-5 w-5 text-primary" />
+            <h2 className="text-sm font-semibold">Plano e uso</h2>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Veja seu plano atual, limites e contagem de pedidos do dia.
+          </p>
+        </Link>
       </section>
 
       <section className="flex flex-col gap-3">

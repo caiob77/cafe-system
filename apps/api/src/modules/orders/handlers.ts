@@ -4,6 +4,7 @@ import { Prisma } from '@cafe/db';
 import { type OrderStatusValue, deliveryScheduleSchema, isDeliveryOpen } from '@cafe/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { checkDailyOrderLimit, getPlanUsage } from '../../lib/plan-limits.js';
 import { buildKitchenTicket } from '../print-jobs/builders.js';
 import {
   ACTIVE_ORDER_STATUSES,
@@ -169,6 +170,18 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
       return reply.code(409).send(error('idempotency_conflict', 'idempotencyKey já utilizado'));
     }
     return reply.code(200).send({ data: serializeOrder(existingByKey) });
+  }
+
+  const orgPlan = await request.server.prisma.organization.findUnique({
+    where: { id: tenantId },
+    select: { plan: true },
+  });
+  if (orgPlan) {
+    const usage = await getPlanUsage(request.server.prisma, tenantId);
+    const limit = checkDailyOrderLimit(orgPlan.plan, usage.ordersToday);
+    if (!limit.ok) {
+      return reply.code(402).send(error(limit.code, limit.message));
+    }
   }
 
   if (body.type === 'dine_in') {

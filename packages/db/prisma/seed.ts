@@ -265,6 +265,8 @@ async function main() {
       defaultDeliveryFee: new Prisma.Decimal(defaultDeliveryFee),
       addressLine: orgAddress,
       phone: orgPhone,
+      setupCompletedAt: new Date(),
+      plan: 'pro',
     },
   });
 

@@ -58,7 +58,7 @@ export function RegisterForm() {
       return;
     }
 
-    router.replace('/pedidos');
+    router.replace('/setup');
     router.refresh();
   }
 

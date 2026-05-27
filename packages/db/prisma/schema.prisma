@@ -113,11 +113,14 @@ model Organization {
   updatedAt DateTime @default(now()) @updatedAt
 
   // Custom café fields
-  deliveryEnabled    Boolean  @default(false)
+  deliveryEnabled    Boolean   @default(false)
   deliverySchedule   Json?
-  defaultDeliveryFee Decimal? @db.Decimal(10, 2)
+  defaultDeliveryFee Decimal?  @db.Decimal(10, 2)
   addressLine        String?
   phone              String?
+  setupCompletedAt   DateTime?
+  plan               PlanType  @default(free)
+  planExpiresAt      DateTime?
 
   members         Member[]
   invitations     Invitation[]
@@ -173,6 +176,11 @@ model Invitation {
 // ============================================================================
 // CAFÉ DOMAIN — Enums
 // ============================================================================
+
+enum PlanType {
+  free
+  pro
+}
 
 enum OrderType {
   dine_in

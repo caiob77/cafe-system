@@ -9,6 +9,8 @@ const protectedPrefixes = [
   '/delivery',
   '/configuracoes',
   '/relatorios',
+  '/setup',
+  '/upgrade',
 ];
 
 function hasSessionCookie(request: NextRequest) {
@@ -40,5 +42,7 @@ export const config = {
     '/delivery/:path*',
     '/configuracoes/:path*',
     '/relatorios/:path*',
+    '/setup/:path*',
+    '/upgrade/:path*',
   ],
 };
