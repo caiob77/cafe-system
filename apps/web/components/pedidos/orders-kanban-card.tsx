@@ -85,7 +85,7 @@ export function OrdersKanbanCard({
         <Button
           disabled={pendingAdvance}
           onClick={() => onAdvance(order, nextStep)}
-          size="sm"
+          size="touch"
           type="button"
         >
           {pendingAdvance ? (

@@ -42,7 +42,7 @@ export function MesaDetailContainer({ tableId }: MesaDetailContainerProps) {
 
   return (
     <div className="space-y-4">
-      <Button asChild size="sm" type="button" variant="ghost">
+      <Button asChild size="touch" type="button" variant="ghost">
         <Link href="/mesas">
           <ArrowLeft className="h-4 w-4" />
           Voltar para mesas

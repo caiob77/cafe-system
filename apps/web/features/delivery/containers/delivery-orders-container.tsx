@@ -121,7 +121,7 @@ export function DeliveryOrdersContainer() {
                 <Button
                   disabled={pendingId === order.id}
                   onClick={() => handleAdvance(order, nextStep)}
-                  size="sm"
+                  size="touch"
                 >
                   {pendingId === order.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   Avançar para {orderStatusLabel[nextStep]}

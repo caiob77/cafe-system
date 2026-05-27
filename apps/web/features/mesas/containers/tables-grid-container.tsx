@@ -84,7 +84,7 @@ export function TablesGridContainer() {
           Toque numa mesa livre para abrir um novo pedido, ou em uma ocupada para acompanhar.
         </p>
         {canManage ? (
-          <Button onClick={openCreate} size="sm" type="button">
+          <Button onClick={openCreate} size="touch" type="button">
             <Plus className="h-4 w-4" />
             Nova mesa
           </Button>
@@ -100,7 +100,7 @@ export function TablesGridContainer() {
           <Utensils className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">Nenhuma mesa cadastrada ainda.</p>
           {canManage ? (
-            <Button onClick={openCreate} size="sm" type="button">
+            <Button onClick={openCreate} size="touch" type="button">
               <Plus className="h-4 w-4" />
               Cadastrar primeira mesa
             </Button>

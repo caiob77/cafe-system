@@ -94,7 +94,7 @@ export function KitchenTicketCard({ order, pendingAdvance, onAdvance }: KitchenT
           className="self-end"
           disabled={pendingAdvance}
           onClick={() => onAdvance(order, nextStep)}
-          size="sm"
+          size="touch"
           type="button"
         >
           {pendingAdvance ? (

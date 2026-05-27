@@ -55,11 +55,11 @@ export function CashRegisterContainer() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setMovementOpen(true)} size="sm" variant="secondary">
+          <Button onClick={() => setMovementOpen(true)} size="touch" variant="secondary">
             <Plus className="h-4 w-4" />
             Movimento
           </Button>
-          <Button onClick={() => setCloseOpen(true)} size="sm" variant="destructive">
+          <Button onClick={() => setCloseOpen(true)} size="touch" variant="destructive">
             <LockKeyhole className="h-4 w-4" />
             Fechar caixa
           </Button>

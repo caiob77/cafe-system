@@ -17,6 +17,8 @@ const buttonVariants = cva(
       size: {
         default: 'h-10 px-4 py-2',
         sm: 'h-9 px-3',
+        // 44px — mínimo recomendado por WCAG 2.5.5 / HIG para operação em tablet/mobile.
+        touch: 'h-11 px-4 py-2',
         icon: 'h-10 w-10 px-0',
       },
     },

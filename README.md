@@ -32,14 +32,16 @@ autenticado por token de impressora.
 ```txt
 cafe-system/
 ├── apps/
-│   ├── api/          # API Fastify
-│   ├── web/          # App Next.js
-│   └── print-agent/  # Agente local de impressao
+│   ├── api/                 # API Fastify (Dockerfile multi-stage)
+│   ├── web/                 # App Next.js (Dockerfile com output standalone)
+│   └── print-agent/         # Agente local de impressao
 ├── packages/
-│   ├── db/           # Prisma schema, migrations, seed e client
-│   └── shared/       # Tipos/schemas compartilhados
-├── context-front.md  # Regras especificas para frontend
-├── docker-compose.yml
+│   ├── db/                  # Prisma schema, migrations, seed e client
+│   └── shared/              # Tipos/schemas compartilhados
+├── nginx/                   # nginx.conf, templates e bootstrap do Let's Encrypt
+├── context-front.md         # Regras especificas para frontend
+├── docker-compose.yml       # Stack de dev (postgres + redis)
+├── docker-compose.prod.yml  # Stack completa (api, web, nginx, certbot...)
 └── package.json
 ```
 
@@ -311,6 +313,101 @@ Se um token vazar, revogue a impressora:
 curl -X DELETE http://localhost:3333/api/v1/printer-devices/<id> \
   -H 'Cookie: better-auth.session_token=...'
 ```
+
+## Producao (Docker)
+
+A stack de producao vive em `docker-compose.prod.yml` e sobe: `postgres`,
+`redis`, `api`, `web`, `nginx` (proxy + SSL) e `certbot` (renew automatico).
+
+### Configuracao
+
+1. Copie o template e preencha:
+
+```bash
+cp .env.production.example .env.production
+```
+
+Variaveis minimas:
+
+```env
+DOMAIN=cafe.seu-dominio.com
+LETSENCRYPT_EMAIL=voce@seu-dominio.com
+
+POSTGRES_USER=cafe
+POSTGRES_PASSWORD=<senha-forte>
+POSTGRES_DB=cafe
+
+BETTER_AUTH_SECRET=<openssl rand -base64 48>
+BETTER_AUTH_URL=https://cafe.seu-dominio.com
+WEB_URL=https://cafe.seu-dominio.com
+NEXT_PUBLIC_API_URL=https://cafe.seu-dominio.com
+
+SUPER_ADMIN_EMAILS=voce@seu-dominio.com
+PRO_PLAN_PRICE=99
+```
+
+### Build das imagens
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production build
+```
+
+### Bootstrap do certificado SSL (primeiro deploy)
+
+Aponte o DNS do `DOMAIN` para o IP da VPS antes desta etapa. Depois rode:
+
+```bash
+DOMAIN=cafe.seu-dominio.com \
+LETSENCRYPT_EMAIL=voce@seu-dominio.com \
+  ./nginx/init-letsencrypt.sh
+```
+
+O script cria um cert temporario, sobe o nginx, pede o cert real ao Let's
+Encrypt via webroot e recarrega o nginx. Depois disso o servico `certbot`
+renova automaticamente a cada 12h.
+
+### Subir a stack
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+```
+
+### Migrations e seed inicial
+
+```bash
+# aplica migrations
+docker compose -f docker-compose.prod.yml --env-file .env.production \
+  exec api pnpm --filter @cafe/db exec prisma migrate deploy
+
+# (opcional) roda o seed inicial — exige SEED_* no .env.production
+docker compose -f docker-compose.prod.yml --env-file .env.production \
+  exec api pnpm --filter @cafe/db db:seed
+```
+
+### Smoke test
+
+```bash
+curl https://cafe.seu-dominio.com/api/health
+# { "status": "ok", "uptime": <segundos>, "db": "ok" }
+```
+
+### Operacao
+
+```bash
+# logs ao vivo
+docker compose -f docker-compose.prod.yml logs -f api web nginx
+
+# atualizar apenas a API apos um deploy
+docker compose -f docker-compose.prod.yml --env-file .env.production \
+  up -d --build api
+
+# parar tudo (preserva volumes)
+docker compose -f docker-compose.prod.yml --env-file .env.production down
+```
+
+> Backup do Postgres: o volume `postgres_backups` ja esta montado em
+> `/backups` no container `cafe-postgres-prod`. Configurar um cron com
+> `pg_dump` apontando para esse diretorio fica para o passo 10.2.
 
 ## Frontend
 

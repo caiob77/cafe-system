@@ -144,38 +144,96 @@ CREATE INDEX IF NOT EXISTS order_active_by_org
 -- ============================================================================
 -- 6) MULTI-TENANT — Row-Level Security (RLS).
 -- ----------------------------------------------------------------------------
--- Esta seção está COMENTADA. Ativar SOMENTE depois que o backend Fastify
--- estiver configurado para executar, no início de toda transação:
+-- Esta seção é IDEMPOTENTE. Cria as policies em todos os ambientes, mas só
+-- LIGA o RLS de fato quando a variável de sessão `app.enable_rls = on` está
+-- presente (lida via current_setting, default = off). Assim a SQL pode rodar
+-- antes do refator de handlers sem quebrar o app.
 --
---   SET LOCAL app.current_org = '<organizationId-da-sessão>';
+-- ATIVAR EM PRODUÇÃO:
+--   1) Refatorar TODOS os handlers para usar `request.withTenant(async (db) => ...)`
+--      em vez de `request.server.prisma.X` direto (ver docs/rls.md).
+--   2) Garantir que a role de runtime do Postgres NÃO tem BYPASSRLS.
+--   3) Setar `ALTER DATABASE cafe SET app.enable_rls = on;` (ou per-role).
+--   4) Reciclar conexões (restart do API) — o setting é lido na conexão.
 --
--- Sem isso, RLS vai bloquear TODAS as queries. Manter como guia até o
--- middleware estar pronto.
---
--- Bypass: roles com BYPASSRLS (ex: o owner do banco). O usuário de runtime
--- da aplicação NÃO deve ter BYPASSRLS.
+-- Bypass: roles com BYPASSRLS (ex: owner do banco para migrations). O usuário
+-- de runtime da aplicação NÃO deve ter BYPASSRLS. Super admin do SaaS:
+-- usar conexão separada com role BYPASSRLS ou setar app.current_org para
+-- a org-alvo dentro de cada transação.
 -- ============================================================================
 
--- ALTER TABLE "category"          ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "product"           ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "product_addon"     ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "table"             ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "customer"          ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "order"             ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "order_item"        ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "order_item_addon"  ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "payment"           ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "cash_register"     ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "cash_movement"     ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "print_job"         ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE "delivery_fee"      ENABLE ROW LEVEL SECURITY;
+-- ---- 6.1) Habilitar RLS nas tabelas tenant-bound (idempotente) ------------
+ALTER TABLE "category"          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "product"           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "product_addon"     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "table"             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "customer"          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "order"             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "order_item"        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "order_item_addon"  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "payment"           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "cash_register"     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "cash_movement"     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "print_job"         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "delivery_fee"      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "printer_device"    ENABLE ROW LEVEL SECURITY;
+
+
+-- ---- 6.2) Policies — padrão tenant_isolation_<tabela> ---------------------
+-- Cada policy combina:
+--   - escape hatch: current_setting('app.enable_rls', true) <> 'on'
+--     deixa o app funcionar sem refactor, e permite que migrations rodem
+--     contra a role owner sem precisar setar app.current_org. Quando o flag
+--     virar 'on' globalmente, o isolamento passa a ser obrigatório.
+--   - USING: filtra leituras pelo organizationId == app.current_org.
+--   - WITH CHECK: impede INSERT/UPDATE de "mover" linha para outra org.
 --
--- Padrão de policy (replicar para cada tabela trocando o nome):
---
--- CREATE POLICY tenant_isolation_category ON "category"
---   USING ("organizationId" = current_setting('app.current_org', true))
---   WITH CHECK ("organizationId" = current_setting('app.current_org', true));
---
--- (e assim por diante para product, product_addon, table, customer, order,
---  order_item, order_item_addon, payment, cash_register, cash_movement,
---  print_job, delivery_fee.)
+-- DROP+CREATE para tornar idempotente. Custo de drop é desprezível.
+
+DO $$
+DECLARE
+  tbl text;
+  tables text[] := ARRAY[
+    'category', 'product', 'product_addon', 'table', 'customer',
+    'order', 'order_item', 'order_item_addon', 'payment',
+    'cash_register', 'cash_movement', 'print_job', 'delivery_fee'
+  ];
+  policy_name text;
+BEGIN
+  FOREACH tbl IN ARRAY tables LOOP
+    policy_name := 'tenant_isolation_' || tbl;
+
+    EXECUTE format('DROP POLICY IF EXISTS %I ON %I', policy_name, tbl);
+
+    EXECUTE format($f$
+      CREATE POLICY %I ON %I
+        USING (
+          current_setting('app.enable_rls', true) IS DISTINCT FROM 'on'
+          OR "organizationId" = current_setting('app.current_org', true)
+        )
+        WITH CHECK (
+          current_setting('app.enable_rls', true) IS DISTINCT FROM 'on'
+          OR "organizationId" = current_setting('app.current_org', true)
+        )
+    $f$, policy_name, tbl);
+  END LOOP;
+END $$;
+
+
+-- ---- 6.3) printer_device — auth M2M sem sessão humana ---------------------
+-- printer_device é consultado ANTES do tenantId ser resolvido (lookup por
+-- tokenHash em resolvePrinterAuth). A policy precisa permitir esse lookup
+-- mesmo sem app.current_org definido, mas só revelar dispositivos da org
+-- correta quando o setting estiver presente.
+DROP POLICY IF EXISTS tenant_isolation_printer_device ON "printer_device";
+CREATE POLICY tenant_isolation_printer_device ON "printer_device"
+  USING (
+    current_setting('app.enable_rls', true) IS DISTINCT FROM 'on'
+    OR current_setting('app.current_org', true) IS NULL
+    OR current_setting('app.current_org', true) = ''
+    OR "organizationId" = current_setting('app.current_org', true)
+  )
+  WITH CHECK (
+    current_setting('app.enable_rls', true) IS DISTINCT FROM 'on'
+    OR "organizationId" = current_setting('app.current_org', true)
+  );

@@ -28,7 +28,9 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+.env.production
 !.env.example
+!.env.production.example
 
 # IDE
 .vscode/*
@@ -54,3 +56,9 @@ context-front.md
 docs/*
 tabela-produtos.md
 codex-task.md
+
+# Context
+context-front.md
+tabela-produtos.md
+codex-task.md
+claude-task-02.md

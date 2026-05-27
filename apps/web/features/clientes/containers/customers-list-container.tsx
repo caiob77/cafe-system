@@ -54,7 +54,7 @@ export function CustomersListContainer() {
               value={search}
             />
           </div>
-          <Button size="sm" type="submit" variant="secondary">
+          <Button size="touch" type="submit" variant="secondary">
             <Search className="h-4 w-4" />
             Buscar
           </Button>
@@ -64,7 +64,7 @@ export function CustomersListContainer() {
             setEditing(null);
             setFormOpen(true);
           }}
-          size="sm"
+          size="touch"
         >
           <Plus className="h-4 w-4" />
           Novo cliente

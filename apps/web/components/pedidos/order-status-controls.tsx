@@ -52,7 +52,7 @@ export function OrderStatusControls({
               disabled={pending}
               key={next}
               onClick={() => onAdvance(next)}
-              size="sm"
+              size="touch"
               type="button"
             >
               {pending ? (
@@ -68,7 +68,7 @@ export function OrderStatusControls({
           <Button
             disabled={pending}
             onClick={onCancel}
-            size="sm"
+            size="touch"
             type="button"
             variant="destructive"
           >

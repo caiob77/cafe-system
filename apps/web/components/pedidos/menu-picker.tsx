@@ -36,7 +36,7 @@ export function MenuPicker({
           <Button
             key={category.id}
             onClick={() => onSelectCategory(category.id)}
-            size="sm"
+            size="touch"
             type="button"
             variant={category.id === selectedCategoryId ? 'default' : 'secondary'}
           >
