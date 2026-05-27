@@ -9,6 +9,16 @@ const EnvSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url().default('http://localhost:3333'),
   WEB_URL: z.string().url().default('http://localhost:3000'),
+  SUPER_ADMIN_EMAILS: z
+    .string()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.length > 0),
+    ),
+  PRO_PLAN_PRICE: z.coerce.number().nonnegative().default(99),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

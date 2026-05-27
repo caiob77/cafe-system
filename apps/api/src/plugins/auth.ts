@@ -10,6 +10,7 @@ declare module 'fastify' {
     requireAuth: preHandlerHookHandler;
     requirePrinterOrRole: (roles: AppRole | AppRole[]) => preHandlerHookHandler;
     requireRole: (roles: AppRole | AppRole[]) => preHandlerHookHandler;
+    requireSuperAdmin: preHandlerHookHandler;
   }
 
   interface FastifyRequest {
@@ -17,6 +18,7 @@ declare module 'fastify' {
     tenantId: string | null;
     role: AppRole | null;
     printerDeviceId: string | null;
+    isSuperAdmin: boolean;
   }
 }
 
@@ -64,6 +66,7 @@ async function setRequestAuthContext(request: FastifyRequest): Promise<void> {
   request.tenantId = null;
   request.role = null;
   request.printerDeviceId = null;
+  request.isSuperAdmin = false;
 
   if (isAuthRoute(request)) return;
 
@@ -76,6 +79,12 @@ async function setRequestAuthContext(request: FastifyRequest): Promise<void> {
   if (!session) return;
 
   request.authSession = session;
+
+  const user = await request.server.prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { isSuperAdmin: true },
+  });
+  request.isSuperAdmin = user?.isSuperAdmin ?? false;
 
   const activeOrgId = activeOrganizationId(session);
   const member = await request.server.prisma.member.findFirst({
@@ -102,6 +111,7 @@ export const authPlugin = fp(
     app.decorateRequest('tenantId', null);
     app.decorateRequest('role', null);
     app.decorateRequest('printerDeviceId', null);
+    app.decorateRequest('isSuperAdmin', false);
 
     app.decorate('requireAuth', async (request: FastifyRequest, reply: FastifyReply) => {
       if (!hasHumanSession(request)) {
@@ -123,6 +133,15 @@ export const authPlugin = fp(
           return reply.code(403).send(error('forbidden', 'Permissão insuficiente'));
         }
       };
+    });
+
+    app.decorate('requireSuperAdmin', async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.authSession) {
+        return reply.code(401).send(error('unauthorized', 'Sessão obrigatória'));
+      }
+      if (!request.isSuperAdmin) {
+        return reply.code(403).send(error('forbidden', 'Acesso restrito a super admin'));
+      }
     });
 
     app.decorate('requireRole', (roles: AppRole | AppRole[]) => {

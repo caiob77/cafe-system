@@ -9,6 +9,8 @@ import {
 } from 'fastify-type-provider-zod';
 
 import { env } from './lib/env.js';
+import { syncSuperAdmins } from './lib/super-admin.js';
+import { adminRoutes } from './modules/admin/routes.js';
 import { cashRegisterRoutes } from './modules/cash-registers/routes.js';
 import { categoryRoutes } from './modules/categories/routes.js';
 import { customerRoutes } from './modules/customers/routes.js';
@@ -88,6 +90,21 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(printJobRoutes, { prefix: '/api/v1/print-jobs' });
   await app.register(printerDeviceRoutes, { prefix: '/api/v1/printer-devices' });
   await app.register(reportRoutes, { prefix: '/api/v1/reports' });
+  await app.register(adminRoutes, { prefix: '/api/v1/admin' });
+
+  app.addHook('onReady', async () => {
+    try {
+      await syncSuperAdmins(app.prisma, env.SUPER_ADMIN_EMAILS);
+      if (env.SUPER_ADMIN_EMAILS.length > 0) {
+        app.log.info(
+          { count: env.SUPER_ADMIN_EMAILS.length },
+          'Super admins sincronizados via SUPER_ADMIN_EMAILS',
+        );
+      }
+    } catch (err) {
+      app.log.error({ err }, 'Falha ao sincronizar super admins');
+    }
+  });
 
   return app;
 }

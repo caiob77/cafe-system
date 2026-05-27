@@ -8,6 +8,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         session: request.authSession?.session,
         tenantId: request.tenantId,
         role: request.role,
+        isSuperAdmin: request.isSuperAdmin,
       },
     };
   });

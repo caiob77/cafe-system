@@ -54,6 +54,29 @@ export const planLimitsPlugin = fp(
     );
 
     app.addHook('preHandler', async (request, reply) => {
+      if (!request.tenantId) return;
+      if (!request.url.startsWith('/api/v1/')) return;
+      if (request.url.startsWith('/api/v1/admin/')) return;
+      if (request.url.startsWith('/api/v1/auth/')) return;
+      if (request.url.startsWith('/api/v1/organization/me')) return;
+      if (request.url.startsWith('/api/v1/organization/plan')) return;
+      if (request.method === 'GET') return;
+
+      const org = await request.server.prisma.organization.findUnique({
+        where: { id: request.tenantId },
+        select: { suspendedAt: true },
+      });
+      if (org?.suspendedAt) {
+        return reply.code(423).send(
+          error(
+            'tenant_suspended',
+            'Café suspenso. Entre em contato com o suporte para reativar.',
+          ),
+        );
+      }
+    });
+
+    app.addHook('preHandler', async (request, reply) => {
       if (request.method !== 'POST') return;
       const url = request.url.split('?')[0];
       if (!MEMBER_INVITE_URLS.some((path) => url === path)) return;

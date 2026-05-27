@@ -39,6 +39,7 @@ model User {
   emailVerified Boolean  @default(false)
   image         String?
   phone         String?
+  isSuperAdmin  Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -121,6 +122,7 @@ model Organization {
   setupCompletedAt   DateTime?
   plan               PlanType  @default(free)
   planExpiresAt      DateTime?
+  suspendedAt        DateTime?
 
   members         Member[]
   invitations     Invitation[]

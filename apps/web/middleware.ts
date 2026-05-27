@@ -11,6 +11,7 @@ const protectedPrefixes = [
   '/relatorios',
   '/setup',
   '/upgrade',
+  '/admin',
 ];
 
 function hasSessionCookie(request: NextRequest) {
@@ -44,5 +45,6 @@ export const config = {
     '/relatorios/:path*',
     '/setup/:path*',
     '/upgrade/:path*',
+    '/admin/:path*',
   ],
 };

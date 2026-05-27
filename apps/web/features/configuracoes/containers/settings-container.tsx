@@ -107,6 +107,21 @@ export function SettingsContainer() {
             Veja seu plano atual, limites e contagem de pedidos do dia.
           </p>
         </Link>
+
+        {session.isSuperAdmin ? (
+          <Link
+            className="flex flex-col gap-2 rounded-lg border-2 border-primary/40 bg-primary/5 p-4 shadow-sm transition hover:border-primary hover:shadow"
+            href="/admin"
+          >
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              <h2 className="text-sm font-semibold">Painel admin (SaaS)</h2>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Métricas globais, gestão de tenants e ações de super admin.
+            </p>
+          </Link>
+        ) : null}
       </section>
 
       <section className="flex flex-col gap-3">
