@@ -48,6 +48,7 @@ const config = {
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'Inter', 'Arial', 'sans-serif'],
+        display: ['var(--font-display)', 'Georgia', 'Times New Roman', 'serif'],
       },
     },
   },

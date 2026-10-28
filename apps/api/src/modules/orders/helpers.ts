@@ -186,6 +186,15 @@ const STATUS_TRANSITIONS: Record<OrderStatusValue, OrderStatusValue[]> = {
   cancelled: [],
 };
 
+/**
+ * Itens do pedido só podem ser adicionados/removidos enquanto ele está na
+ * fila de pendente. A partir de `preparing` a cozinha já assumiu e qualquer
+ * mudança passa por cancelar/cuidar via fluxo de status.
+ */
+export function canModifyOrderItems(status: OrderStatusValue): boolean {
+  return status === 'pending';
+}
+
 export function canTransition(
   current: OrderStatusValue,
   next: OrderStatusValue,

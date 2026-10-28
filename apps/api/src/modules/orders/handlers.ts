@@ -11,6 +11,7 @@ import {
   type ResolvedItem,
   calculateItemsSubtotal,
   calculateOrderTotal,
+  canModifyOrderItems,
   canTransition,
   decimalOrNull,
   resolveItemsForOrder,
@@ -509,7 +510,7 @@ export async function addOrderItemHandler(request: FastifyRequest, reply: Fastif
     return reply.code(404).send(error('order_not_found', 'Pedido não encontrado'));
   }
 
-  if (!['pending', 'preparing'].includes(order.status)) {
+  if (!canModifyOrderItems(order.status)) {
     return reply
       .code(409)
       .send(error('order_not_open', 'Pedido não aceita mais itens nesse status'));
@@ -615,7 +616,7 @@ export async function removeOrderItemHandler(request: FastifyRequest, reply: Fas
     return reply.code(404).send(error('order_not_found', 'Pedido não encontrado'));
   }
 
-  if (!['pending', 'preparing'].includes(order.status)) {
+  if (!canModifyOrderItems(order.status)) {
     return reply
       .code(409)
       .send(error('order_not_open', 'Pedido não permite remover itens nesse status'));

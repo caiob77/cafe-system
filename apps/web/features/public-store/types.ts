@@ -82,6 +82,15 @@ export type PublicCartAddon = {
   quantity: number;
 };
 
+export type PublicCustomerForm = {
+  name: string;
+  phone: string;
+  address: string;
+  neighborhood: string;
+  reference: string;
+  notes: string;
+};
+
 export type PublicCartItem = {
   tempId: string;
   productId: string;

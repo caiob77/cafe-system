@@ -76,11 +76,27 @@ openssl rand -hex 32
 
 Use o valor gerado em `BETTER_AUTH_SECRET`.
 
-4. Suba Postgres e Redis:
+4. Suba o docker compose de dev (Postgres e Redis):
 
 ```bash
 docker compose up -d postgres redis
 ```
+
+O `docker-compose.yml` de dev tem **só a infra** (Postgres em `5433`, Redis em
+`6380` — portas alternativas para não conflitar com outras instâncias locais).
+A API e o front rodam fora do Docker em dev, via `pnpm dev:api` / `pnpm dev:web`
+(passo 9). Stack completa em container (api, web, nginx, certbot) só em
+produção, via `docker-compose.prod.yml`.
+
+```bash
+docker compose ps       # ver status dos serviços
+docker compose logs -f  # acompanhar logs
+docker compose down     # para tudo (preserva os dados nos volumes)
+docker compose down -v  # para tudo e APAGA os dados
+```
+
+Se as portas `5433`/`6380` já estiverem ocupadas por outro projeto, ajuste o
+mapeamento em `docker-compose.yml` e o `DATABASE_URL`/`REDIS_URL` no `.env`.
 
 5. Rode as migrations:
 

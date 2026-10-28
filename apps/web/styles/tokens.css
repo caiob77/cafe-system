@@ -1,0 +1,63 @@
+/*
+  Tokens da loja pública. Contrato em docs/task-frontend/loja-publica.md.
+  Só valem dentro de [data-theme="store"]. O :root do painel não é alterado.
+*/
+
+[data-theme="store"] {
+  --background: 45 20% 96%;
+  --foreground: 24 22% 9%;
+  --card: 0 0% 100%;
+  --card-foreground: 24 22% 9%;
+  --primary: 17 47% 12%;
+  --primary-foreground: 38 41% 95%;
+  --secondary: 36 24% 88%;
+  --secondary-foreground: 24 22% 9%;
+  --muted: 40 24% 93%;
+  --muted-foreground: 26 10% 33%;
+  --accent: 17 47% 12%;
+  --accent-foreground: 38 41% 95%;
+  --destructive: 0 69% 37%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 31 9% 52%;
+  --input: 31 9% 52%;
+  --ring: 17 47% 12%;
+  --radius: 0.5rem;
+  --line: 35 18% 87%;
+  --font-sans: var(--font-store-sans), "Source Sans 3", sans-serif;
+  --font-display: var(--font-store-display), Georgia, "Times New Roman", serif;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans), sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  scroll-padding-top: 4.5rem;
+  scroll-padding-bottom: 6rem;
+}
+
+[data-theme="store"] :is(button, a, summary) {
+  cursor: pointer;
+}
+
+[data-theme="store"] button:disabled {
+  cursor: not-allowed;
+}
+
+[data-theme="store"] .store-sheet {
+  animation: store-fade 160ms ease-out;
+}
+
+@keyframes store-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="store"] .store-sheet {
+    animation: none;
+  }
+}
