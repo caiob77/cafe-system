@@ -6,7 +6,15 @@ import { DeliveryOrdersContainer } from '@/features/delivery/containers/delivery
 import { DeliverySettingsContainer } from '@/features/delivery/containers/delivery-settings-container';
 import { NewDeliveryOrderContainer } from '@/features/delivery/containers/new-delivery-order-container';
 
-export default function DeliveryPage() {
+type DeliveryPageProps = {
+  searchParams: {
+    aba?: string;
+  };
+};
+
+export default function DeliveryPage({ searchParams }: DeliveryPageProps) {
+  const initialTab = searchParams.aba === 'configuracoes' ? 'settings' : 'new';
+
   return (
     <div className="flex flex-col gap-6">
       <header>
@@ -15,7 +23,7 @@ export default function DeliveryPage() {
           Pedidos de entrega, base de clientes e taxas por bairro.
         </p>
       </header>
-      <Tabs defaultValue="new">
+      <Tabs defaultValue={initialTab}>
         <TabsList>
           <TabsTrigger value="new">Novo pedido</TabsTrigger>
           <TabsTrigger value="orders">Pedidos</TabsTrigger>

@@ -19,6 +19,7 @@ async function resolvePublicOrganization(request: FastifyRequest, slug: string) 
       logo: true,
       addressLine: true,
       phone: true,
+      brandColor: true,
       deliveryEnabled: true,
       deliverySchedule: true,
       defaultDeliveryFee: true,
@@ -85,6 +86,7 @@ export async function getPublicMenuHandler(request: FastifyRequest, reply: Fasti
         logo: org.logo,
         addressLine: org.addressLine,
         phone: org.phone,
+        brandColor: org.brandColor,
       },
       delivery: serializeDeliverySettings(org),
       categories: categories.map((category) => ({

@@ -42,6 +42,7 @@ function serializeOrganization(org: {
   logo: string | null;
   addressLine: string | null;
   phone: string | null;
+  brandColor: string | null;
   deliveryEnabled: boolean;
   deliverySchedule: Prisma.JsonValue | null;
   defaultDeliveryFee: Prisma.Decimal | null;
@@ -57,6 +58,7 @@ function serializeOrganization(org: {
     logo: org.logo,
     addressLine: org.addressLine,
     phone: org.phone,
+    brandColor: org.brandColor,
     deliveryEnabled: org.deliveryEnabled,
     deliverySchedule: org.deliverySchedule,
     defaultDeliveryFee: org.defaultDeliveryFee?.toFixed(2) ?? null,
@@ -75,6 +77,7 @@ const ORG_SELECT = {
   logo: true,
   addressLine: true,
   phone: true,
+  brandColor: true,
   deliveryEnabled: true,
   deliverySchedule: true,
   defaultDeliveryFee: true,
@@ -111,6 +114,7 @@ export async function updateProfileHandler(request: FastifyRequest, reply: Fasti
   if (body.logo !== undefined) data.logo = body.logo;
   if (body.addressLine !== undefined) data.addressLine = body.addressLine;
   if (body.phone !== undefined) data.phone = body.phone;
+  if (body.brandColor !== undefined) data.brandColor = body.brandColor;
 
   const updated = await request.server.prisma.organization.update({
     where: { id: tenantId },

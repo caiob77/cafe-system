@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
+import { BackLink } from '@/components/layout/back-link';
 import { LogoutButton } from '@/components/layout/logout-button';
 import { getCurrentUser } from '@/lib/server-api';
 
@@ -10,8 +11,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen bg-muted/20">
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-6">
-        <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-10 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur md:px-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <BackLink href="/configuracoes">Voltar ao café</BackLink>
           <div className="rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground">
             SUPER ADMIN
           </div>

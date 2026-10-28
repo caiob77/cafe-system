@@ -119,6 +119,7 @@ model Organization {
   defaultDeliveryFee Decimal?  @db.Decimal(10, 2)
   addressLine        String?
   phone              String?
+  brandColor         String?
   setupCompletedAt   DateTime?
   plan               PlanType  @default(free)
   planExpiresAt      DateTime?

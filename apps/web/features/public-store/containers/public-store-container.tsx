@@ -7,6 +7,7 @@ import { ApiError } from '@/lib/api-client';
 import { formatPrice } from '@/features/cardapio/utils/format-price';
 import { generateDraftItemId } from '@/features/pedidos/utils/draft';
 import { createPublicOrder, getPublicDeliverySettings, getPublicMenu } from '../api';
+import { applyBrandColor } from '../brand-color';
 import { cartSubtotal, makeIdempotencyKey, moneyToNumber } from '../cart';
 import { CategoryRail } from '../components/category-rail';
 import { ItemSheet } from '../components/item-sheet';
@@ -109,6 +110,12 @@ export function PublicStoreContainer({ slug }: PublicStoreContainerProps) {
     if (!menu) return;
     document.title = `${menu.organization.name} | Pedido`;
   }, [menu]);
+
+  useEffect(() => {
+    if (!portal) return;
+    applyBrandColor(portal, menu?.organization.brandColor ?? null);
+    return () => applyBrandColor(portal, null);
+  }, [menu?.organization.brandColor, portal]);
 
   useEffect(() => {
     if (cart.length === 0) setStep('items');

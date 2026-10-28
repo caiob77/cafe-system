@@ -6,7 +6,7 @@ export default function SettingsPage() {
       <header>
         <h1 className="text-2xl font-semibold">Configurações</h1>
         <p className="text-sm text-muted-foreground">
-          Sua conta, o café ativo e áreas de configuração futuras.
+          Sua conta, o café ativo e as configurações que a API já aceita.
         </p>
       </header>
       <SettingsContainer />

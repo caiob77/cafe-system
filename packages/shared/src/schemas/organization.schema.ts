@@ -10,12 +10,19 @@ function trimmed(maxLen: number, message: string) {
     .pipe(z.string().min(1, 'Valor obrigatório'));
 }
 
+const brandColorSchema = z
+  .string()
+  .trim()
+  .regex(/^#[0-9A-Fa-f]{6}$/, 'Cor deve estar no formato #RRGGBB')
+  .transform((value) => value.toUpperCase());
+
 export const updateOrganizationProfileSchema = z
   .object({
     logo: z.union([z.string().url('Logo deve ser uma URL válida'), z.null()]).optional(),
     name: trimmed(120, 'Nome muito longo').optional(),
     addressLine: z.union([trimmed(200, 'Endereço muito longo'), z.null()]).optional(),
     phone: z.union([trimmed(40, 'Telefone muito longo'), z.null()]).optional(),
+    brandColor: z.union([brandColorSchema, z.null()]).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'Informe ao menos um campo para atualizar.',

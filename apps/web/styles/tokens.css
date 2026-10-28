@@ -1,6 +1,7 @@
 /*
   Tokens da loja pública. Contrato em docs/task-frontend/loja-publica.md.
   Só valem dentro de [data-theme="store"]. O :root do painel não é alterado.
+  Se a API enviar brandColor, a loja troca --primary, --accent e --ring nesse nó.
 */
 
 [data-theme="store"] {

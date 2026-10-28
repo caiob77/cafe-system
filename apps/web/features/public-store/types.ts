@@ -28,6 +28,7 @@ export type PublicStoreMenu = {
     logo: string | null;
     addressLine: string | null;
     phone: string | null;
+    brandColor: string | null;
   };
   delivery: {
     deliveryEnabled: boolean;

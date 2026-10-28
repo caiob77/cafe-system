@@ -27,6 +27,7 @@ export type OrganizationResponse = {
     logo: string | null;
     addressLine: string | null;
     phone: string | null;
+    brandColor: string | null;
     deliveryEnabled: boolean;
     deliverySchedule: Record<string, { open: string; close: string } | null> | null;
     defaultDeliveryFee: string | null;

@@ -15,45 +15,39 @@ import Link from 'next/link';
 
 import { useSessionUI } from '@/features/auth/context/session-ui-provider';
 
-const roleLabel: Record<NonNullable<ReturnType<typeof useSessionUI>['role']>, string> = {
-  owner: 'Proprietário',
-  manager: 'Gerente',
-  attendant: 'Atendente',
-  kitchen: 'Cozinha',
-};
+import { labelRole } from '../roles';
 
-const futureSections = [
+const sections = [
   {
+    href: '/configuracoes/cafe',
     icon: Building2,
     title: 'Dados do café',
-    description:
-      'Razão social, endereço, horário de funcionamento e taxa de entrega padrão (em desenvolvimento).',
+    description: 'Nome, telefone, endereço, logo e cor da marca da loja pública.',
   },
   {
+    href: '/configuracoes/equipe',
     icon: ShieldCheck,
     title: 'Equipe e permissões',
-    description: 'Convite de membros, papéis e gestão de acesso (em desenvolvimento).',
+    description: 'Membros, papéis e convites do café ativo.',
   },
   {
+    href: '/configuracoes/impressao',
     icon: Printer,
     title: 'Impressão térmica',
-    description:
-      'Status do agente de impressão e configuração de impressoras (em desenvolvimento).',
+    description: 'Impressoras do agente e o token de conexão.',
   },
   {
+    href: '/delivery?aba=configuracoes',
     icon: Truck,
     title: 'Delivery',
-    description: 'Habilitar/desabilitar delivery, horários e raio de entrega (em desenvolvimento).',
+    description:
+      'Liga ou desliga a entrega, taxa padrão e horário. Taxas por bairro ficam na mesma página.',
   },
   {
+    href: '/cardapio',
     icon: BookOpen,
-    title: 'Cardápio padrão',
-    description: 'Categorias, produtos e adicionais (já disponível em Cardápio).',
-  },
-  {
-    icon: ChefHat,
-    title: 'Cozinha',
-    description: 'Notas padrão e tempos médios de preparo (em desenvolvimento).',
+    title: 'Cardápio',
+    description: 'Categorias, produtos e adicionais.',
   },
 ];
 
@@ -78,7 +72,7 @@ export function SettingsContainer() {
               {session.user.email}
             </dd>
             <dt className="text-muted-foreground">Papel</dt>
-            <dd>{role ? roleLabel[role] : 'Sem função'}</dd>
+            <dd>{role ? labelRole(role) : 'Sem função'}</dd>
           </dl>
         </div>
 
@@ -126,27 +120,34 @@ export function SettingsContainer() {
 
       <section className="flex flex-col gap-3">
         <header>
-          <h2 className="text-sm font-semibold">Em breve</h2>
-          <p className="text-xs text-muted-foreground">
-            Estas áreas serão configuráveis pela UI conforme os módulos forem amadurecendo.
-          </p>
+          <h2 className="text-sm font-semibold">Do café</h2>
         </header>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {futureSections.map((section) => {
+          {sections.map((section) => {
             const Icon = section.icon;
             return (
-              <article
-                className="flex flex-col gap-2 rounded-lg border border-dashed bg-muted/30 p-4"
-                key={section.title}
+              <Link
+                className="flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-sm transition hover:border-primary hover:shadow"
+                href={section.href}
+                key={section.href}
               >
                 <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <Icon className="h-4 w-4 text-primary" />
                   <h3 className="text-sm font-medium">{section.title}</h3>
                 </div>
                 <p className="text-xs text-muted-foreground">{section.description}</p>
-              </article>
+              </Link>
             );
           })}
+          <article className="flex flex-col gap-2 rounded-lg border border-dashed bg-muted/30 p-4">
+            <div className="flex items-center gap-2">
+              <ChefHat className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium">Cozinha</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Notas padrão e tempo de preparo ainda não existem na API.
+            </p>
+          </article>
         </div>
       </section>
     </div>
