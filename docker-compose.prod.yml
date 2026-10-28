@@ -6,6 +6,8 @@
 # Variáveis obrigatórias no .env.production:
 #   - POSTGRES_PASSWORD, POSTGRES_USER, POSTGRES_DB
 #   - DATABASE_ADMIN_URL
+#   - (opcional) DATABASE_URL — com RLS ligado, usar a role cafe_runtime
+#   - RUNTIME_DB_PASSWORD, ADMIN_DB_PASSWORD (para criar as roles via db:roles)
 #   - BETTER_AUTH_SECRET, BETTER_AUTH_URL, WEB_URL, NEXT_PUBLIC_API_URL
 #   - DOMAIN (ex.: cafe.exemplo.com) e LETSENCRYPT_EMAIL
 #   - SUPER_ADMIN_EMAILS, PRO_PLAN_PRICE
@@ -56,7 +58,9 @@ services:
       NODE_ENV: production
       API_HOST: 0.0.0.0
       API_PORT: 3333
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      # Com RLS ligado, aponte DATABASE_URL para a role cafe_runtime (superuser
+      # passa por cima do RLS). O padrao abaixo usa POSTGRES_* (owner).
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public}
       DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL}
       REDIS_URL: redis://redis:6379
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}

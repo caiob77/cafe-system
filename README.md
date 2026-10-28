@@ -4,8 +4,11 @@ Sistema SaaS multi-tenant para operacao de cafes da manha: pedidos de mesa e del
 
 ## Status
 
-**Fase atual:** base SaaS operacional com cardapio, pedidos, cozinha, caixa,
-relatorios, configuracoes e fluxo inicial de impressao.
+**Fase atual:** base SaaS operacional com cardapio, pedidos (balcao, mesa e
+delivery, incluindo loja publica `/loja/[slug]`), cozinha, caixa, relatorios,
+configuracoes e fluxo inicial de impressao. Isolamento multi-tenant em duas
+camadas: handlers via `request.withTenant` + Row-Level Security no Postgres
+(ver [Isolamento multi-tenant](#isolamento-multi-tenant-rls)).
 
 O projeto ja possui monorepo, banco PostgreSQL com Prisma, API Fastify,
 Better Auth com organizacoes, frontend Next.js protegido e print-agent local
@@ -85,7 +88,21 @@ docker compose up -d postgres redis
 pnpm -F @cafe/db db:migrate
 ```
 
-6. Configure e popule dados iniciais:
+6. Aplique constraints, indices e policies de RLS (o Prisma nao emite isso
+no `migrate`) e crie as roles do RLS:
+
+```bash
+pnpm -F @cafe/db db:post-migrate
+pnpm -F @cafe/db db:roles
+```
+
+O `db:roles` cria `cafe_runtime` (sem `BYPASSRLS`, uso da API) e `cafe_admin`
+(com `BYPASSRLS`, endpoints globais `/api/v1/admin/*`). As senhas vao em
+`RUNTIME_DB_PASSWORD` e `ADMIN_DB_PASSWORD` no `.env` (ja presentes no
+`.env.example`). Para ligar a fiscalizacao de fato, ver
+[Isolamento multi-tenant](#isolamento-multi-tenant-rls).
+
+7. Configure e popule dados iniciais:
 
 O seed atual foi preparado para iniciar uma base real em modelo multi-tenant.
 Ele cria o primeiro cliente/tenant da plataforma. No seu caso, esse primeiro
@@ -171,7 +188,7 @@ o seed. Use um valor longo com prefixo `pd_`:
 SEED_PRINTER_TOKEN=pd_token_longo_gerado_com_seguranca
 ```
 
-7. Configure o `apps/print-agent/.env`:
+8. Configure o `apps/print-agent/.env`:
 
 ```bash
 cp apps/print-agent/.env.example apps/print-agent/.env
@@ -185,7 +202,7 @@ API_WS_URL=ws://localhost:3333/api/v1/realtime
 PRINTER_TOKEN=pd_xxxxxxxxxxxxxxxxx
 ```
 
-8. Suba o projeto:
+9. Suba o projeto:
 
 ```bash
 pnpm dev:api
@@ -216,10 +233,13 @@ pnpm check        # Biome check --write
 Comandos do banco:
 
 ```bash
-pnpm -F @cafe/db db:migrate
+pnpm -F @cafe/db db:migrate         # migrations (role owner/superuser)
+pnpm -F @cafe/db db:post-migrate    # constraints, indices e policies RLS
+pnpm -F @cafe/db db:roles           # cria cafe_runtime e cafe_admin
 pnpm -F @cafe/db db:generate
 pnpm -F @cafe/db db:seed
 pnpm -F @cafe/db db:studio
+pnpm -F @cafe/db db:migrate:deploy  # aplica migrations (deploy/prod)
 ```
 
 ## Autenticacao
@@ -238,6 +258,34 @@ GET /api/v1/auth/owner-only
 ```
 
 O frontend usa cookies de sessao do Better Auth e protege o dashboard via middleware.
+
+## Isolamento multi-tenant (RLS)
+
+O isolamento entre tenants tem duas camadas:
+
+- **Aplicacao:** todos os handlers de dominio acessam tabelas tenant-bound via
+  `request.withTenant(...)`, que fixa `app.current_org` na transacao.
+- **Banco:** policies `tenant_isolation_*` (em
+  `packages/db/prisma/sql/post-migrate.sql`, aplicadas via `db:post-migrate`)
+  garantem o filtro mesmo que um handler novo esqueca o `organizationId`.
+
+Duas roles, criadas via `pnpm -F @cafe/db db:roles`:
+
+| Role | Uso | `BYPASSRLS` |
+| --- | --- | --- |
+| `cafe_runtime` | `DATABASE_URL` da API | nao |
+| `cafe_admin` | `DATABASE_ADMIN_URL`, rotas `/api/v1/admin/*` | sim |
+
+Enquanto `app.enable_rls` nao for `'on'`, as policies deixam tudo passar (modo
+permissivo — util em dev). Para ligar:
+
+```sql
+ALTER DATABASE cafe SET app.enable_rls = 'on';
+```
+
+...e reinicie a API (o setting carrega em conexoes novas). Com o flag ligado, a
+API **precisa** rodar como `cafe_runtime` (superuser/owner passa por cima do
+RLS). Roteiro completo e smoke test em [docs/rls.md](./docs/rls.md).
 
 ## Pedido delivery publico
 
@@ -442,10 +490,25 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d
 docker compose -f docker-compose.prod.yml --env-file .env.production \
   exec api pnpm --filter @cafe/db exec prisma migrate deploy
 
+# constraints, indices e policies RLS (os scripts db:post-migrate/db:roles
+# usam o nome do container de dev; em prod canalize os SQL via stdin)
+set -a && . ./.env.production && set +a
+docker compose -f docker-compose.prod.yml --env-file .env.production \
+  exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  < packages/db/prisma/sql/post-migrate.sql
+docker compose -f docker-compose.prod.yml --env-file .env.production \
+  exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -v runtime_pw="$RUNTIME_DB_PASSWORD" -v admin_pw="$ADMIN_DB_PASSWORD" \
+  < packages/db/prisma/sql/init-roles.sql
+
 # (opcional) roda o seed inicial — exige SEED_* no .env.production
 docker compose -f docker-compose.prod.yml --env-file .env.production \
   exec api pnpm --filter @cafe/db db:seed
 ```
+
+Depois, para ligar a fiscalizacao do RLS em producao, ver
+[Isolamento multi-tenant](#isolamento-multi-tenant-rls) — e descomente o
+`DATABASE_URL` da role `cafe_runtime` no `.env.production` antes de subir a API.
 
 ### Smoke test
 
