@@ -1,6 +1,8 @@
 'use client';
 
-import { Clock, Hash } from 'lucide-react';
+import { Clock, Hash, Plus, Trash2 } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 
 import { formatPrice } from '@/features/cardapio/utils/format-price';
 import type { Order } from '@/features/pedidos/types';
@@ -18,9 +20,19 @@ function formatDateTime(value: string) {
 
 type OrderSummaryProps = {
   order: Order;
+  editable?: boolean;
+  mutationPending?: boolean;
+  onAddItem?: () => void;
+  onRemoveItem?: (itemId: string) => void;
 };
 
-export function OrderSummary({ order }: OrderSummaryProps) {
+export function OrderSummary({
+  order,
+  editable = false,
+  mutationPending = false,
+  onAddItem,
+  onRemoveItem,
+}: OrderSummaryProps) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm">
       <header className="flex flex-wrap items-center justify-between gap-2">
@@ -35,7 +47,23 @@ export function OrderSummary({ order }: OrderSummaryProps) {
             {order.table ? ` · Mesa #${order.table.number}` : ''}
           </p>
         </div>
-        <span className="text-sm font-semibold text-primary">Total {formatPrice(order.total)}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-primary">
+            Total {formatPrice(order.total)}
+          </span>
+          {editable ? (
+            <Button
+              disabled={mutationPending}
+              onClick={onAddItem}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar item
+            </Button>
+          ) : null}
+        </div>
       </header>
 
       <ul className="divide-y rounded-md border">
@@ -45,8 +73,25 @@ export function OrderSummary({ order }: OrderSummaryProps) {
               <p className="text-sm font-medium">
                 {item.quantity}× {item.productNameSnapshot}
               </p>
-              <span className="shrink-0 text-sm text-muted-foreground">
+              <span className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
                 {formatPrice(Number(item.unitPrice) * item.quantity)}
+                {editable ? (
+                  <Button
+                    aria-label={`Remover ${item.productNameSnapshot}`}
+                    disabled={mutationPending || order.items.length <= 1}
+                    onClick={() => onRemoveItem?.(item.id)}
+                    size="icon"
+                    title={
+                      order.items.length <= 1
+                        ? 'Cancele o pedido em vez de remover o último item'
+                        : 'Remover item'
+                    }
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                ) : null}
               </span>
             </div>
             {item.addons.length > 0 ? (

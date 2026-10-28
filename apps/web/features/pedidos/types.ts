@@ -97,3 +97,10 @@ export type UpdateOrderStatusPayload = {
   version: number;
   cancelReason?: string;
 };
+
+export type AddOrderItemPayload = {
+  productId: string;
+  quantity: number;
+  notes?: string | null;
+  addons?: Array<{ productAddonId: string; quantity?: number }>;
+};

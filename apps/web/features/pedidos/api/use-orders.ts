@@ -6,7 +6,12 @@ import { apiClient } from '@/lib/api-client';
 
 import { tableKeys } from '@/features/mesas/api/keys';
 
-import type { CreateOrderPayload, Order, UpdateOrderStatusPayload } from '../types';
+import type {
+  AddOrderItemPayload,
+  CreateOrderPayload,
+  Order,
+  UpdateOrderStatusPayload,
+} from '../types';
 import { orderKeys } from './keys';
 
 type ListOptions = {
@@ -60,6 +65,37 @@ export function useCreateOrder() {
       }).then((res) => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: orderKeys.all });
+      queryClient.invalidateQueries({ queryKey: tableKeys.lists() });
+    },
+  });
+}
+
+export function useAddOrderItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: AddOrderItemPayload & { id: string }) =>
+      apiClient<{ data: Order }>(`/api/v1/orders/${id}/items`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }).then((res) => res.data),
+    onSuccess: (order) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
+      queryClient.invalidateQueries({ queryKey: tableKeys.lists() });
+    },
+  });
+}
+
+export function useRemoveOrderItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, itemId }: { id: string; itemId: string }) =>
+      apiClient<{ data: Order }>(`/api/v1/orders/${id}/items/${itemId}`, {
+        method: 'DELETE',
+      }).then((res) => res.data),
+    onSuccess: (order) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
       queryClient.invalidateQueries({ queryKey: tableKeys.lists() });
     },
   });
