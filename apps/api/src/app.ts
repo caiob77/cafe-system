@@ -22,6 +22,7 @@ import { printJobRoutes } from './modules/print-jobs/routes.js';
 import { printerDeviceRoutes } from './modules/printer-devices/routes.js';
 import { productAddonRoutes } from './modules/product-addons/routes.js';
 import { productRoutes } from './modules/products/routes.js';
+import { publicRoutes } from './modules/public/routes.js';
 import { reportRoutes } from './modules/reports/routes.js';
 import { tableRoutes } from './modules/tables/routes.js';
 import { authPlugin } from './plugins/auth.js';
@@ -91,6 +92,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(printerDeviceRoutes, { prefix: '/api/v1/printer-devices' });
   await app.register(reportRoutes, { prefix: '/api/v1/reports' });
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
+  await app.register(publicRoutes, { prefix: '/api/v1/public' });
 
   app.addHook('onReady', async () => {
     try {

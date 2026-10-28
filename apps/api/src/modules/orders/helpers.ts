@@ -1,4 +1,4 @@
-import { Prisma, type PrismaClient } from '@cafe/db';
+import { Prisma, type PrismaClient, type TenantTx } from '@cafe/db';
 import type { OrderItemInput, OrderStatusValue, OrderTypeValue } from '@cafe/shared';
 
 const ZERO = new Prisma.Decimal(0);
@@ -29,7 +29,7 @@ export type ResolutionResult =
   | { ok: false; error: ResolutionFailure };
 
 export async function resolveItemsForOrder(
-  prisma: PrismaClient,
+  prisma: PrismaClient | TenantTx,
   tenantId: string,
   items: OrderItemInput[],
 ): Promise<ResolutionResult> {

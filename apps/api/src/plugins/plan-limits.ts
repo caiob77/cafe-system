@@ -22,36 +22,31 @@ const MEMBER_INVITE_URLS = [
 
 export const planLimitsPlugin = fp(
   async (app) => {
-    app.decorate(
-      'requireAdvancedReports',
-      async (request: FastifyRequest, reply: FastifyReply) => {
-        if (!request.tenantId) {
-          return reply
-            .code(403)
-            .send(error('tenant_required', 'Organização ativa obrigatória'));
-        }
+    app.decorate('requireAdvancedReports', async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.tenantId) {
+        return reply.code(403).send(error('tenant_required', 'Organização ativa obrigatória'));
+      }
 
-        const org = await request.server.prisma.organization.findUnique({
-          where: { id: request.tenantId },
-          select: { plan: true },
-        });
+      const org = await request.server.prisma.organization.findUnique({
+        where: { id: request.tenantId },
+        select: { plan: true },
+      });
 
-        if (!org) {
-          return reply
-            .code(404)
-            .send(error('organization_not_found', 'Organização não encontrada'));
-        }
+      if (!org) {
+        return reply.code(404).send(error('organization_not_found', 'Organização não encontrada'));
+      }
 
-        if (!PLAN_LIMITS[org.plan].advancedReports) {
-          return reply.code(402).send(
+      if (!PLAN_LIMITS[org.plan].advancedReports) {
+        return reply
+          .code(402)
+          .send(
             error(
               'plan_limit_reached',
               `Relatórios avançados não disponíveis no plano ${org.plan}. Faça upgrade para o Pro.`,
             ),
           );
-        }
-      },
-    );
+      }
+    });
 
     app.addHook('preHandler', async (request, reply) => {
       if (!request.tenantId) return;
@@ -67,12 +62,14 @@ export const planLimitsPlugin = fp(
         select: { suspendedAt: true },
       });
       if (org?.suspendedAt) {
-        return reply.code(423).send(
-          error(
-            'tenant_suspended',
-            'Café suspenso. Entre em contato com o suporte para reativar.',
-          ),
-        );
+        return reply
+          .code(423)
+          .send(
+            error(
+              'tenant_suspended',
+              'Café suspenso. Entre em contato com o suporte para reativar.',
+            ),
+          );
       }
     });
 

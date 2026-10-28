@@ -39,7 +39,7 @@ cafe-system/
 │   ├── db/                  # Prisma schema, migrations, seed e client
 │   └── shared/              # Tipos/schemas compartilhados
 ├── nginx/                   # nginx.conf, templates e bootstrap do Let's Encrypt
-├── context-front.md         # Regras especificas para frontend
+├── docs/tasks/              # Tarefas e regras de frontend (context-front.md)
 ├── docker-compose.yml       # Stack de dev (postgres + redis)
 ├── docker-compose.prod.yml  # Stack completa (api, web, nginx, certbot...)
 └── package.json
@@ -199,6 +199,7 @@ URLs padrao:
 - Web: http://localhost:3000
 - API: http://localhost:3333
 - Health check: http://localhost:3333/api/health
+- Loja publica: http://localhost:3000/loja/<slug-da-organizacao>
 
 ## Comandos
 
@@ -237,6 +238,68 @@ GET /api/v1/auth/owner-only
 ```
 
 O frontend usa cookies de sessao do Better Auth e protege o dashboard via middleware.
+
+## Pedido delivery publico
+
+Clientes podem criar pedidos delivery sem acessar o painel interno pela rota:
+
+```txt
+/loja/[slug]
+```
+
+Exemplo local, usando o slug criado no seed:
+
+```txt
+http://localhost:3000/loja/cafe-beniel
+```
+
+Essa pagina nao exige login. Ela carrega o cardapio publico, permite selecionar
+produtos e adicionais, montar carrinho, preencher dados de entrega e enviar o
+pedido. Se o delivery estiver desativado, fechado pelo horario configurado ou o
+bairro nao for atendido, o envio e bloqueado com mensagem clara.
+
+Endpoints publicos da API:
+
+```txt
+GET  /api/v1/public/:slug/menu
+GET  /api/v1/public/:slug/delivery-settings
+POST /api/v1/public/:slug/orders
+```
+
+O `POST /api/v1/public/:slug/orders` espera:
+
+```json
+{
+  "customer": {
+    "name": "Nome do cliente",
+    "phone": "92999999999",
+    "address": "Rua Exemplo, 123",
+    "neighborhood": "Centro",
+    "reference": "Proximo a praca"
+  },
+  "items": [
+    {
+      "productId": "id-do-produto",
+      "quantity": 1,
+      "notes": "Sem cebola",
+      "addons": [
+        {
+          "productAddonId": "id-do-adicional",
+          "quantity": 1
+        }
+      ]
+    }
+  ],
+  "notes": "Observacao geral",
+  "idempotencyKey": "chave-unica-do-cliente"
+}
+```
+
+O backend resolve a organizacao pelo `slug`, retorna apenas categorias ativas e
+produtos/adicionais disponiveis, cria ou reutiliza o cliente pelo telefone e cria
+um pedido `delivery` com status inicial `pending`. O pedido entra no mesmo fluxo
+interno de delivery, publica evento realtime e gera o ticket de cozinha/print job
+como os pedidos criados pelo painel.
 
 ## Impressao
 
@@ -411,7 +474,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.production down
 
 ## Frontend
 
-Ao alterar `apps/web`, siga o documento [context-front.md](./context-front.md). Ele define a arquitetura obrigatoria para frontend:
+Ao alterar `apps/web`, siga o documento [context-front.md](./docs/tasks/context-front.md). Ele define a arquitetura obrigatoria para frontend:
 
 - API via React Query.
 - Estado global de UI via Redux Toolkit.

@@ -1,12 +1,8 @@
-import { type PlanType, Prisma } from '@cafe/db';
+import type { PlanType, Prisma } from '@cafe/db';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { env } from '../../lib/env.js';
-import {
-  listTenantsQuerySchema,
-  tenantIdParamSchema,
-  updateTenantSchema,
-} from './schemas.js';
+import { listTenantsQuerySchema, tenantIdParamSchema, updateTenantSchema } from './schemas.js';
 
 function error(code: string, message: string) {
   return { error: { code, message } };
@@ -49,9 +45,7 @@ function serializeTenant(tenant: TenantRow) {
     suspendedAt: tenant.suspendedAt?.toISOString() ?? null,
     setupCompleted: tenant.setupCompletedAt !== null,
     createdAt: tenant.createdAt.toISOString(),
-    owner: owner
-      ? { id: owner.id, name: owner.name, email: owner.email }
-      : null,
+    owner: owner ? { id: owner.id, name: owner.name, email: owner.email } : null,
     ordersTotal: tenant._count.orders,
   };
 }
@@ -59,11 +53,11 @@ function serializeTenant(tenant: TenantRow) {
 export async function getAdminMetricsHandler(request: FastifyRequest, _reply: FastifyReply) {
   const now = new Date();
   const [tenants, proCount, suspendedCount, ordersTotal, ordersToday] = await Promise.all([
-    request.server.prisma.organization.count(),
-    request.server.prisma.organization.count({ where: { plan: 'pro' } }),
-    request.server.prisma.organization.count({ where: { suspendedAt: { not: null } } }),
-    request.server.prisma.order.count(),
-    request.server.prisma.order.count({
+    request.server.prismaAdmin.organization.count(),
+    request.server.prismaAdmin.organization.count({ where: { plan: 'pro' } }),
+    request.server.prismaAdmin.organization.count({ where: { suspendedAt: { not: null } } }),
+    request.server.prismaAdmin.order.count(),
+    request.server.prismaAdmin.order.count({
       where: {
         createdAt: { gte: startOfDayUTC(now), lte: endOfDayUTC(now) },
       },
@@ -111,8 +105,8 @@ export async function listTenantsHandler(request: FastifyRequest, _reply: Fastif
   if (query.plan !== 'all') where.plan = query.plan;
 
   const [total, tenants] = await Promise.all([
-    request.server.prisma.organization.count({ where }),
-    request.server.prisma.organization.findMany({
+    request.server.prismaAdmin.organization.count({ where }),
+    request.server.prismaAdmin.organization.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       skip: (query.page - 1) * query.pageSize,
@@ -146,7 +140,7 @@ export async function updateTenantHandler(request: FastifyRequest, reply: Fastif
   const { id } = tenantIdParamSchema.parse(request.params);
   const body = updateTenantSchema.parse(request.body);
 
-  const tenant = await request.server.prisma.organization.findUnique({
+  const tenant = await request.server.prismaAdmin.organization.findUnique({
     where: { id },
     select: { id: true },
   });
@@ -163,7 +157,7 @@ export async function updateTenantHandler(request: FastifyRequest, reply: Fastif
     data.planExpiresAt = body.planExpiresAt === null ? null : new Date(body.planExpiresAt);
   }
 
-  const updated = await request.server.prisma.organization.update({
+  const updated = await request.server.prismaAdmin.organization.update({
     where: { id },
     data,
     include: {

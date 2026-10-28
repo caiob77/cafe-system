@@ -161,7 +161,7 @@ export async function completeSetupHandler(request: FastifyRequest, reply: Fasti
   const printer = body?.printer ?? null;
   const printerToken = printer ? generatePrinterToken() : null;
 
-  const result = await request.server.prisma.$transaction(async (tx) => {
+  const result = await request.withTenant(async (tx) => {
     const updated = await tx.organization.update({
       where: { id: tenantId },
       data: orgUpdate,
@@ -282,7 +282,7 @@ export async function getPlanHandler(request: FastifyRequest, reply: FastifyRepl
     return reply.code(404).send(error('organization_not_found', 'Organização não encontrada'));
   }
 
-  const usage = await getPlanUsage(request.server.prisma, tenantId);
+  const usage = await request.withTenant((db) => getPlanUsage(db, tenantId));
   const limits = PLAN_LIMITS[org.plan];
 
   return {
@@ -301,5 +301,3 @@ export async function getPlanHandler(request: FastifyRequest, reply: FastifyRepl
     },
   };
 }
-
-

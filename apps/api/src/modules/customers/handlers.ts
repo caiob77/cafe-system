@@ -53,15 +53,16 @@ export async function listCustomersHandler(request: FastifyRequest, reply: Fasti
       }
     : {};
 
-  const customers = await request.server.prisma.customer.findMany({
-    where: {
-      organizationId: tenantId,
-      deletedAt: null,
-      ...searchFilter,
-    },
-    orderBy: { name: 'asc' },
-    take: query.limit ?? 100,
-  });
+  const customers = await request.withTenant((db) =>
+    db.customer.findMany({
+      where: {
+        deletedAt: null,
+        ...searchFilter,
+      },
+      orderBy: { name: 'asc' },
+      take: query.limit ?? 100,
+    }),
+  );
 
   return { data: customers.map(serializeCustomer) };
 }
@@ -73,24 +74,28 @@ export async function createCustomerHandler(request: FastifyRequest, reply: Fast
   const body = createCustomerSchema.parse(request.body);
 
   try {
-    const customer = await request.server.prisma.customer.create({
-      data: {
-        organizationId: tenantId,
-        name: body.name,
-        phone: body.phone,
-        address: body.address ?? null,
-        neighborhood: body.neighborhood ?? null,
-        reference: body.reference ?? null,
-        notes: body.notes ?? null,
-      },
-    });
+    const customer = await request.withTenant((db) =>
+      db.customer.create({
+        data: {
+          organizationId: tenantId,
+          name: body.name,
+          phone: body.phone,
+          address: body.address ?? null,
+          neighborhood: body.neighborhood ?? null,
+          reference: body.reference ?? null,
+          notes: body.notes ?? null,
+        },
+      }),
+    );
 
     return reply.code(201).send({ data: serializeCustomer(customer) });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      const conflict = await request.server.prisma.customer.findFirst({
-        where: { organizationId: tenantId, phone: body.phone },
-      });
+      const conflict = await request.withTenant((db) =>
+        db.customer.findFirst({
+          where: { phone: body.phone },
+        }),
+      );
       return reply.code(409).send({
         error: {
           code: 'customer_phone_taken',
@@ -109,9 +114,11 @@ export async function getCustomerHandler(request: FastifyRequest, reply: Fastify
 
   const { id } = customerIdParamSchema.parse(request.params);
 
-  const customer = await request.server.prisma.customer.findFirst({
-    where: { id, organizationId: tenantId, deletedAt: null },
-  });
+  const customer = await request.withTenant((db) =>
+    db.customer.findFirst({
+      where: { id, deletedAt: null },
+    }),
+  );
 
   if (!customer) {
     return reply.code(404).send(error('customer_not_found', 'Cliente não encontrado'));
@@ -127,28 +134,34 @@ export async function updateCustomerHandler(request: FastifyRequest, reply: Fast
   const { id } = customerIdParamSchema.parse(request.params);
   const body = updateCustomerSchema.parse(request.body);
 
-  const existing = await request.server.prisma.customer.findFirst({
-    where: { id, organizationId: tenantId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!existing) {
-    return reply.code(404).send(error('customer_not_found', 'Cliente não encontrado'));
-  }
-
   try {
-    const updated = await request.server.prisma.customer.update({
-      where: { id },
-      data: {
-        ...(body.name === undefined ? {} : { name: body.name }),
-        ...(body.phone === undefined ? {} : { phone: body.phone }),
-        ...(body.address === undefined ? {} : { address: body.address }),
-        ...(body.neighborhood === undefined ? {} : { neighborhood: body.neighborhood }),
-        ...(body.reference === undefined ? {} : { reference: body.reference }),
-        ...(body.notes === undefined ? {} : { notes: body.notes }),
-      },
+    const result = await request.withTenant(async (db) => {
+      const existing = await db.customer.findFirst({
+        where: { id, deletedAt: null },
+        select: { id: true },
+      });
+      if (!existing) return { kind: 'not_found' as const };
+
+      const updated = await db.customer.update({
+        where: { id },
+        data: {
+          ...(body.name === undefined ? {} : { name: body.name }),
+          ...(body.phone === undefined ? {} : { phone: body.phone }),
+          ...(body.address === undefined ? {} : { address: body.address }),
+          ...(body.neighborhood === undefined ? {} : { neighborhood: body.neighborhood }),
+          ...(body.reference === undefined ? {} : { reference: body.reference }),
+          ...(body.notes === undefined ? {} : { notes: body.notes }),
+        },
+      });
+
+      return { kind: 'ok' as const, updated };
     });
 
-    return { data: serializeCustomer(updated) };
+    if (result.kind === 'not_found') {
+      return reply.code(404).send(error('customer_not_found', 'Cliente não encontrado'));
+    }
+
+    return { data: serializeCustomer(result.updated) };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       return reply
@@ -165,32 +178,38 @@ export async function deleteCustomerHandler(request: FastifyRequest, reply: Fast
 
   const { id } = customerIdParamSchema.parse(request.params);
 
-  const existing = await request.server.prisma.customer.findFirst({
-    where: { id, organizationId: tenantId, deletedAt: null },
-    select: { id: true },
+  const result = await request.withTenant(async (db) => {
+    const existing = await db.customer.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) return { kind: 'not_found' as const };
+
+    const hasActive = await db.order.findFirst({
+      where: {
+        customerId: id,
+        status: { in: ['pending', 'preparing', 'ready', 'out_for_delivery', 'delivered'] },
+      },
+      select: { id: true },
+    });
+    if (hasActive) return { kind: 'has_active' as const };
+
+    const deleted = await db.customer.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    return { kind: 'ok' as const, deleted };
   });
-  if (!existing) {
+
+  if (result.kind === 'not_found') {
     return reply.code(404).send(error('customer_not_found', 'Cliente não encontrado'));
   }
-
-  const hasActive = await request.server.prisma.order.findFirst({
-    where: {
-      organizationId: tenantId,
-      customerId: id,
-      status: { in: ['pending', 'preparing', 'ready', 'out_for_delivery', 'delivered'] },
-    },
-    select: { id: true },
-  });
-  if (hasActive) {
+  if (result.kind === 'has_active') {
     return reply
       .code(409)
       .send(error('customer_has_active_order', 'Cliente possui pedido em aberto'));
   }
 
-  const deleted = await request.server.prisma.customer.update({
-    where: { id },
-    data: { deletedAt: new Date() },
-  });
-
-  return { data: serializeCustomer(deleted) };
+  return { data: serializeCustomer(result.deleted) };
 }

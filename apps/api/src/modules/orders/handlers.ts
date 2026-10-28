@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { Prisma } from '@cafe/db';
+import { Prisma, type TenantTx } from '@cafe/db';
 import { type OrderStatusValue, deliveryScheduleSchema, isDeliveryOpen } from '@cafe/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -115,21 +115,17 @@ const ORDER_INCLUDE = {
 } as const;
 
 async function findOrderForTenant(
-  request: FastifyRequest,
+  db: TenantTx,
   tenantId: string,
   orderId: string,
 ): Promise<OrderRecord | null> {
-  return request.server.prisma.order.findFirst({
+  return db.order.findFirst({
     where: { id: orderId, organizationId: tenantId },
     include: ORDER_INCLUDE,
   });
 }
 
-async function nextDailyNumber(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  orderDate: Date,
-): Promise<number> {
+async function nextDailyNumber(tx: TenantTx, tenantId: string, orderDate: Date): Promise<number> {
   const aggregate = await tx.order.aggregate({
     where: { organizationId: tenantId, orderDate },
     _max: { dailyNumber: true },
@@ -160,10 +156,12 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
   const body = createOrderSchema.parse(request.body);
   const idempotencyKey = body.idempotencyKey ?? randomUUID();
 
-  const existingByKey = await request.server.prisma.order.findUnique({
-    where: { idempotencyKey },
-    include: ORDER_INCLUDE,
-  });
+  const existingByKey = await request.withTenant((db) =>
+    db.order.findUnique({
+      where: { idempotencyKey },
+      include: ORDER_INCLUDE,
+    }),
+  );
 
   if (existingByKey) {
     if (existingByKey.organizationId !== tenantId) {
@@ -172,12 +170,14 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
     return reply.code(200).send({ data: serializeOrder(existingByKey) });
   }
 
-  const orgPlan = await request.server.prisma.organization.findUnique({
-    where: { id: tenantId },
-    select: { plan: true },
-  });
+  const orgPlan = await request.withTenant((db) =>
+    db.organization.findUnique({
+      where: { id: tenantId },
+      select: { plan: true },
+    }),
+  );
   if (orgPlan) {
-    const usage = await getPlanUsage(request.server.prisma, tenantId);
+    const usage = await request.withTenant((db) => getPlanUsage(db, tenantId));
     const limit = checkDailyOrderLimit(orgPlan.plan, usage.ordersToday);
     if (!limit.ok) {
       return reply.code(402).send(error(limit.code, limit.message));
@@ -188,23 +188,28 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
     if (!body.tableId) {
       return reply.code(422).send(error('table_required', 'tableId obrigatório para dine_in'));
     }
-    const table = await request.server.prisma.table.findFirst({
-      where: { id: body.tableId, organizationId: tenantId, deletedAt: null },
-      select: { id: true },
-    });
+    const tableId = body.tableId;
+    const table = await request.withTenant((db) =>
+      db.table.findFirst({
+        where: { id: tableId, organizationId: tenantId, deletedAt: null },
+        select: { id: true },
+      }),
+    );
     if (!table) {
       return reply.code(404).send(error('table_not_found', 'Mesa não encontrada'));
     }
 
-    const activeOnTable = await request.server.prisma.order.findFirst({
-      where: {
-        organizationId: tenantId,
-        tableId: body.tableId,
-        type: 'dine_in',
-        status: { in: ACTIVE_ORDER_STATUSES },
-      },
-      select: { id: true },
-    });
+    const activeOnTable = await request.withTenant((db) =>
+      db.order.findFirst({
+        where: {
+          organizationId: tenantId,
+          tableId,
+          type: 'dine_in',
+          status: { in: ACTIVE_ORDER_STATUSES },
+        },
+        select: { id: true },
+      }),
+    );
     if (activeOnTable) {
       return reply.code(409).send(error('table_busy', 'Mesa já possui pedido em aberto'));
     }
@@ -220,28 +225,31 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
         .send(error('customer_required', 'customerId obrigatório para delivery'));
     }
 
-    const [org, customer, deliveryFeesCount] = await Promise.all([
-      request.server.prisma.organization.findUnique({
-        where: { id: tenantId },
-        select: {
-          deliveryEnabled: true,
-          deliverySchedule: true,
-          defaultDeliveryFee: true,
-        },
-      }),
-      request.server.prisma.customer.findFirst({
-        where: { id: body.customerId, organizationId: tenantId, deletedAt: null },
-        select: {
-          id: true,
-          address: true,
-          neighborhood: true,
-          reference: true,
-        },
-      }),
-      request.server.prisma.deliveryNeighborhoodFee.count({
-        where: { organizationId: tenantId },
-      }),
-    ]);
+    const customerId = body.customerId;
+    const [org, customer, deliveryFeesCount] = await request.withTenant((db) =>
+      Promise.all([
+        db.organization.findUnique({
+          where: { id: tenantId },
+          select: {
+            deliveryEnabled: true,
+            deliverySchedule: true,
+            defaultDeliveryFee: true,
+          },
+        }),
+        db.customer.findFirst({
+          where: { id: customerId, organizationId: tenantId, deletedAt: null },
+          select: {
+            id: true,
+            address: true,
+            neighborhood: true,
+            reference: true,
+          },
+        }),
+        db.deliveryNeighborhoodFee.count({
+          where: { organizationId: tenantId },
+        }),
+      ]),
+    );
 
     if (!customer) {
       return reply.code(404).send(error('customer_not_found', 'Cliente não encontrado'));
@@ -274,13 +282,16 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
             ),
           );
       }
-      const zone = await request.server.prisma.deliveryNeighborhoodFee.findFirst({
-        where: {
-          organizationId: tenantId,
-          neighborhood: { equals: customer.neighborhood, mode: 'insensitive' },
-        },
-        select: { fee: true },
-      });
+      const neighborhood = customer.neighborhood;
+      const zone = await request.withTenant((db) =>
+        db.deliveryNeighborhoodFee.findFirst({
+          where: {
+            organizationId: tenantId,
+            neighborhood: { equals: neighborhood, mode: 'insensitive' },
+          },
+          select: { fee: true },
+        }),
+      );
       if (!zone) {
         return reply
           .code(422)
@@ -315,7 +326,9 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
     }
   }
 
-  const resolution = await resolveItemsForOrder(request.server.prisma, tenantId, body.items);
+  const resolution = await request.withTenant((db) =>
+    resolveItemsForOrder(db, tenantId, body.items),
+  );
   if (!resolution.ok) {
     return reply.code(422).send(error(resolution.error.code, resolution.error.message));
   }
@@ -326,7 +339,7 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
 
   for (let attempt = 0; attempt < DAILY_NUMBER_MAX_RETRIES; attempt += 1) {
     try {
-      const created = await request.server.prisma.$transaction(async (tx) => {
+      const created = await request.withTenant(async (tx) => {
         const dailyNumber = await nextDailyNumber(tx, tenantId, orderDate);
 
         return tx.order.create({
@@ -372,14 +385,16 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
       const payload = serializeOrder(created);
       request.server.realtime.publish(tenantId, { type: 'order_created', payload });
 
-      const printJob = await request.server.prisma.printJob.create({
-        data: {
-          organizationId: tenantId,
-          orderId: created.id,
-          type: 'kitchen_ticket',
-          payload: buildKitchenTicket(created),
-        },
-      });
+      const printJob = await request.withTenant((db) =>
+        db.printJob.create({
+          data: {
+            organizationId: tenantId,
+            orderId: created.id,
+            type: 'kitchen_ticket',
+            payload: buildKitchenTicket(created),
+          },
+        }),
+      );
       request.server.realtime.publish(tenantId, {
         type: 'print_job_queued',
         payload: {
@@ -393,6 +408,18 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
 
       return reply.code(201).send({ data: payload });
     } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002' &&
+        Array.isArray((err.meta as { target?: string[] } | undefined)?.target) &&
+        (err.meta as { target: string[] }).target.includes('idempotencyKey')
+      ) {
+        // Com RLS ligado, a busca prévia por idempotencyKey não enxerga chaves
+        // de outra org (retorna null), e o UNIQUE global estoura aqui.
+        // Sem RLS o conflito cai no 409 do pré-check acima; este ramo mantém
+        // o mesmo comportamento com RLS ligado.
+        return reply.code(409).send(error('idempotency_conflict', 'idempotencyKey já utilizado'));
+      }
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002' &&
@@ -437,19 +464,21 @@ export async function listOrdersHandler(request: FastifyRequest, reply: FastifyR
           ? { status: { in: ['finished', 'cancelled'] } }
           : {};
 
-  const orders = await request.server.prisma.order.findMany({
-    where: {
-      organizationId: tenantId,
-      ...(query.type ? { type: query.type } : {}),
-      ...(query.tableId ? { tableId: query.tableId } : {}),
-      ...(query.customerId ? { customerId: query.customerId } : {}),
-      ...statusFilter,
-      ...dateFilter,
-    },
-    include: ORDER_INCLUDE,
-    orderBy: { createdAt: 'desc' },
-    take: query.limit ?? 100,
-  });
+  const orders = await request.withTenant((db) =>
+    db.order.findMany({
+      where: {
+        organizationId: tenantId,
+        ...(query.type ? { type: query.type } : {}),
+        ...(query.tableId ? { tableId: query.tableId } : {}),
+        ...(query.customerId ? { customerId: query.customerId } : {}),
+        ...statusFilter,
+        ...dateFilter,
+      },
+      include: ORDER_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+      take: query.limit ?? 100,
+    }),
+  );
 
   return { data: orders.map(serializeOrder) };
 }
@@ -460,7 +489,7 @@ export async function getOrderHandler(request: FastifyRequest, reply: FastifyRep
 
   const { id } = orderIdParamSchema.parse(request.params);
 
-  const order = await findOrderForTenant(request, tenantId, id);
+  const order = await request.withTenant((db) => findOrderForTenant(db, tenantId, id));
   if (!order) {
     return reply.code(404).send(error('order_not_found', 'Pedido não encontrado'));
   }
@@ -475,7 +504,7 @@ export async function addOrderItemHandler(request: FastifyRequest, reply: Fastif
   const { id } = orderIdParamSchema.parse(request.params);
   const body = addOrderItemSchema.parse(request.body);
 
-  const order = await findOrderForTenant(request, tenantId, id);
+  const order = await request.withTenant((db) => findOrderForTenant(db, tenantId, id));
   if (!order) {
     return reply.code(404).send(error('order_not_found', 'Pedido não encontrado'));
   }
@@ -486,7 +515,7 @@ export async function addOrderItemHandler(request: FastifyRequest, reply: Fastif
       .send(error('order_not_open', 'Pedido não aceita mais itens nesse status'));
   }
 
-  const resolution = await resolveItemsForOrder(request.server.prisma, tenantId, [body]);
+  const resolution = await request.withTenant((db) => resolveItemsForOrder(db, tenantId, [body]));
   if (!resolution.ok) {
     return reply.code(422).send(error(resolution.error.code, resolution.error.message));
   }
@@ -515,7 +544,7 @@ export async function addOrderItemHandler(request: FastifyRequest, reply: Fastif
 
   const { subtotal, total } = recalcTotals(allResolvedItems, order);
 
-  const { updated, newItemId } = await request.server.prisma.$transaction(async (tx) => {
+  const { updated, newItemId } = await request.withTenant(async (tx) => {
     const created = await tx.orderItem.create({
       data: {
         organizationId: tenantId,
@@ -551,14 +580,16 @@ export async function addOrderItemHandler(request: FastifyRequest, reply: Fastif
   });
 
   const partialOrder = { ...updated, items: updated.items.filter((it) => it.id === newItemId) };
-  const printJob = await request.server.prisma.printJob.create({
-    data: {
-      organizationId: tenantId,
-      orderId: updated.id,
-      type: 'kitchen_ticket',
-      payload: buildKitchenTicket(partialOrder),
-    },
-  });
+  const printJob = await request.withTenant((db) =>
+    db.printJob.create({
+      data: {
+        organizationId: tenantId,
+        orderId: updated.id,
+        type: 'kitchen_ticket',
+        payload: buildKitchenTicket(partialOrder),
+      },
+    }),
+  );
   request.server.realtime.publish(tenantId, {
     type: 'print_job_queued',
     payload: {
@@ -579,7 +610,7 @@ export async function removeOrderItemHandler(request: FastifyRequest, reply: Fas
 
   const { id, itemId } = orderItemParamSchema.parse(request.params);
 
-  const order = await findOrderForTenant(request, tenantId, id);
+  const order = await request.withTenant((db) => findOrderForTenant(db, tenantId, id));
   if (!order) {
     return reply.code(404).send(error('order_not_found', 'Pedido não encontrado'));
   }
@@ -618,7 +649,7 @@ export async function removeOrderItemHandler(request: FastifyRequest, reply: Fas
 
   const { subtotal, total } = recalcTotals(resolvedRemaining, order);
 
-  const updated = await request.server.prisma.$transaction(async (tx) => {
+  const updated = await request.withTenant(async (tx) => {
     await tx.orderItem.delete({ where: { id: itemId } });
     return tx.order.update({
       where: { id: order.id },
@@ -641,7 +672,7 @@ export async function updateOrderStatusHandler(request: FastifyRequest, reply: F
   const { id } = orderIdParamSchema.parse(request.params);
   const body = updateOrderStatusSchema.parse(request.body);
 
-  const order = await findOrderForTenant(request, tenantId, id);
+  const order = await request.withTenant((db) => findOrderForTenant(db, tenantId, id));
   if (!order) {
     return reply.code(404).send(error('order_not_found', 'Pedido não encontrado'));
   }
@@ -684,11 +715,13 @@ export async function updateOrderStatusHandler(request: FastifyRequest, reply: F
     ...(body.status === 'finished' ? { finishedAt: now } : {}),
   };
 
-  const updated = await request.server.prisma.order.update({
-    where: { id: order.id },
-    data,
-    include: ORDER_INCLUDE,
-  });
+  const updated = await request.withTenant((db) =>
+    db.order.update({
+      where: { id: order.id },
+      data,
+      include: ORDER_INCLUDE,
+    }),
+  );
 
   const payload = serializeOrder(updated);
   request.server.realtime.publish(tenantId, {

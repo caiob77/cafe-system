@@ -45,14 +45,15 @@ export async function listCategoriesHandler(request: FastifyRequest, reply: Fast
 
   const query = listCategoriesQuerySchema.parse(request.query);
 
-  const categories = await request.server.prisma.category.findMany({
-    where: {
-      organizationId: tenantId,
-      ...(query.active === undefined ? {} : { active: query.active }),
-      ...(query.includeDeleted ? {} : { deletedAt: null }),
-    },
-    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-  });
+  const categories = await request.withTenant((db) =>
+    db.category.findMany({
+      where: {
+        ...(query.active === undefined ? {} : { active: query.active }),
+        ...(query.includeDeleted ? {} : { deletedAt: null }),
+      },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    }),
+  );
 
   return { data: categories.map(serializeCategory) };
 }
@@ -63,32 +64,37 @@ export async function createCategoryHandler(request: FastifyRequest, reply: Fast
 
   const body = createCategorySchema.parse(request.body);
 
-  const existing = await request.server.prisma.category.findFirst({
-    where: {
-      organizationId: tenantId,
-      name: body.name,
-      deletedAt: null,
-    },
+  const result = await request.withTenant(async (db) => {
+    const existing = await db.category.findFirst({
+      where: {
+        name: body.name,
+        deletedAt: null,
+      },
+    });
+
+    if (existing) return { kind: 'duplicate' as const };
+
+    const maxSort = await db.category.aggregate({
+      where: { deletedAt: null },
+      _max: { sortOrder: true },
+    });
+
+    const category = await db.category.create({
+      data: {
+        organizationId: tenantId,
+        name: body.name,
+        sortOrder: body.sortOrder ?? (maxSort._max.sortOrder ?? -1) + 1,
+      },
+    });
+
+    return { kind: 'ok' as const, category };
   });
 
-  if (existing) {
+  if (result.kind === 'duplicate') {
     return reply.code(409).send(error('category_already_exists', 'Categoria já cadastrada'));
   }
 
-  const maxSort = await request.server.prisma.category.aggregate({
-    where: { organizationId: tenantId, deletedAt: null },
-    _max: { sortOrder: true },
-  });
-
-  const category = await request.server.prisma.category.create({
-    data: {
-      organizationId: tenantId,
-      name: body.name,
-      sortOrder: body.sortOrder ?? (maxSort._max.sortOrder ?? -1) + 1,
-    },
-  });
-
-  return reply.code(201).send({ data: serializeCategory(category) });
+  return reply.code(201).send({ data: serializeCategory(result.category) });
 }
 
 export async function updateCategoryHandler(request: FastifyRequest, reply: FastifyReply) {
@@ -98,43 +104,49 @@ export async function updateCategoryHandler(request: FastifyRequest, reply: Fast
   const { id } = categoryIdParamSchema.parse(request.params);
   const body = updateCategorySchema.parse(request.body);
 
-  const category = await request.server.prisma.category.findFirst({
-    where: {
-      id,
-      organizationId: tenantId,
-      deletedAt: null,
-    },
-  });
-
-  if (!category) {
-    return reply.code(404).send(error('category_not_found', 'Categoria não encontrada'));
-  }
-
-  if (body.name && body.name !== category.name) {
-    const existing = await request.server.prisma.category.findFirst({
+  const result = await request.withTenant(async (db) => {
+    const category = await db.category.findFirst({
       where: {
-        organizationId: tenantId,
-        name: body.name,
+        id,
         deletedAt: null,
-        id: { not: id },
       },
     });
 
-    if (existing) {
-      return reply.code(409).send(error('category_already_exists', 'Categoria já cadastrada'));
-    }
-  }
+    if (!category) return { kind: 'not_found' as const };
 
-  const updated = await request.server.prisma.category.update({
-    where: { id },
-    data: {
-      ...(body.name === undefined ? {} : { name: body.name }),
-      ...(body.sortOrder === undefined ? {} : { sortOrder: body.sortOrder }),
-      ...(body.active === undefined ? {} : { active: body.active }),
-    },
+    if (body.name && body.name !== category.name) {
+      const existing = await db.category.findFirst({
+        where: {
+          name: body.name,
+          deletedAt: null,
+          id: { not: id },
+        },
+      });
+
+      if (existing) return { kind: 'duplicate' as const };
+    }
+
+    const updated = await db.category.update({
+      where: { id },
+      data: {
+        ...(body.name === undefined ? {} : { name: body.name }),
+        ...(body.sortOrder === undefined ? {} : { sortOrder: body.sortOrder }),
+        ...(body.active === undefined ? {} : { active: body.active }),
+      },
+    });
+
+    return { kind: 'ok' as const, updated };
   });
 
-  return { data: serializeCategory(updated) };
+  if (result.kind === 'not_found') {
+    return reply.code(404).send(error('category_not_found', 'Categoria não encontrada'));
+  }
+
+  if (result.kind === 'duplicate') {
+    return reply.code(409).send(error('category_already_exists', 'Categoria já cadastrada'));
+  }
+
+  return { data: serializeCategory(result.updated) };
 }
 
 export async function deleteCategoryHandler(request: FastifyRequest, reply: FastifyReply) {
@@ -143,40 +155,46 @@ export async function deleteCategoryHandler(request: FastifyRequest, reply: Fast
 
   const { id } = categoryIdParamSchema.parse(request.params);
 
-  const category = await request.server.prisma.category.findFirst({
-    where: {
-      id,
-      organizationId: tenantId,
-      deletedAt: null,
-    },
-    include: {
-      _count: {
-        select: {
-          products: {
-            where: { deletedAt: null },
+  const result = await request.withTenant(async (db) => {
+    const category = await db.category.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+      },
+      include: {
+        _count: {
+          select: {
+            products: {
+              where: { deletedAt: null },
+            },
           },
         },
       },
-    },
+    });
+
+    if (!category) return { kind: 'not_found' as const };
+    if (category._count.products > 0) return { kind: 'has_products' as const };
+
+    const deleted = await db.category.update({
+      where: { id },
+      data: {
+        active: false,
+        deletedAt: new Date(),
+      },
+    });
+
+    return { kind: 'ok' as const, deleted };
   });
 
-  if (!category) {
+  if (result.kind === 'not_found') {
     return reply.code(404).send(error('category_not_found', 'Categoria não encontrada'));
   }
 
-  if (category._count.products > 0) {
+  if (result.kind === 'has_products') {
     return reply.code(409).send(error('category_has_products', 'Categoria possui produtos ativos'));
   }
 
-  const deleted = await request.server.prisma.category.update({
-    where: { id },
-    data: {
-      active: false,
-      deletedAt: new Date(),
-    },
-  });
-
-  return { data: serializeCategory(deleted) };
+  return { data: serializeCategory(result.deleted) };
 }
 
 export async function reorderCategoriesHandler(request: FastifyRequest, reply: FastifyReply) {
@@ -190,40 +208,44 @@ export async function reorderCategoriesHandler(request: FastifyRequest, reply: F
     return reply.code(422).send(error('duplicated_ids', 'IDs repetidos na ordenação'));
   }
 
-  const categories = await request.server.prisma.category.findMany({
-    where: {
-      id: { in: body.ids },
-      organizationId: tenantId,
-      deletedAt: null,
-    },
-    select: { id: true },
-  });
+  const result = await request.withTenant(
+    async (db) => {
+      const categories = await db.category.findMany({
+        where: {
+          id: { in: body.ids },
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
 
-  if (categories.length !== body.ids.length) {
+      if (categories.length !== body.ids.length) return { kind: 'not_found' as const };
+
+      await Promise.all(
+        body.ids.map((id: string, sortOrder: number) =>
+          db.category.update({
+            where: { id },
+            data: { sortOrder },
+          }),
+        ),
+      );
+
+      const ordered = await db.category.findMany({
+        where: {
+          id: { in: body.ids },
+        },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      });
+
+      return { kind: 'ok' as const, ordered };
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+  );
+
+  if (result.kind === 'not_found') {
     return reply
       .code(404)
       .send(error('category_not_found', 'Uma ou mais categorias não foram encontradas'));
   }
 
-  await request.server.prisma.$transaction(
-    body.ids.map((id: string, sortOrder: number) =>
-      request.server.prisma.category.update({
-        where: { id },
-        data: { sortOrder },
-      }),
-    ),
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
-    },
-  );
-
-  const ordered = await request.server.prisma.category.findMany({
-    where: {
-      id: { in: body.ids },
-      organizationId: tenantId,
-    },
-    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-  });
-
-  return { data: ordered.map(serializeCategory) };
+  return { data: result.ordered.map(serializeCategory) };
 }

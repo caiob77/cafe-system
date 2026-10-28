@@ -51,19 +51,22 @@ export async function salesReportHandler(request: FastifyRequest, reply: Fastify
   const { from, to } = resolveRange(query);
 
   type Row = { bucket: Date; count: bigint; revenue: Prisma.Decimal | null };
-  const rows = await request.server.prisma.$queryRaw<Row[]>`
-    SELECT
-      DATE_TRUNC(${query.period}, "createdAt" AT TIME ZONE 'America/Sao_Paulo') AS bucket,
-      COUNT(*) AS count,
-      SUM(total) AS revenue
-    FROM "order"
-    WHERE "organizationId" = ${tenantId}
-      AND status = 'finished'
-      AND "createdAt" >= ${from}
-      AND "createdAt" <= ${to}
-    GROUP BY bucket
-    ORDER BY bucket ASC
-  `;
+  const rows = await request.withTenant(
+    (db) =>
+      db.$queryRaw<Row[]>`
+      SELECT
+        DATE_TRUNC(${query.period}, "createdAt" AT TIME ZONE 'America/Sao_Paulo') AS bucket,
+        COUNT(*) AS count,
+        SUM(total) AS revenue
+      FROM "order"
+      WHERE "organizationId" = ${tenantId}
+        AND status = 'finished'
+        AND "createdAt" >= ${from}
+        AND "createdAt" <= ${to}
+      GROUP BY bucket
+      ORDER BY bucket ASC
+    `,
+  );
 
   const totalRevenue = rows.reduce((acc, row) => acc.add(row.revenue ?? ZERO), ZERO);
   const totalCount = rows.reduce((acc, row) => acc + Number(row.count), 0);
@@ -99,22 +102,25 @@ export async function productsReportHandler(request: FastifyRequest, reply: Fast
     quantity: bigint;
     revenue: Prisma.Decimal | null;
   };
-  const rows = await request.server.prisma.$queryRaw<Row[]>`
-    SELECT
-      oi."productId"           AS "productId",
-      oi."productNameSnapshot" AS name,
-      SUM(oi.quantity)         AS quantity,
-      SUM(oi."unitPrice" * oi.quantity) AS revenue
-    FROM "order_item" oi
-    JOIN "order" o ON o.id = oi."orderId"
-    WHERE oi."organizationId" = ${tenantId}
-      AND o.status = 'finished'
-      AND o."createdAt" >= ${from}
-      AND o."createdAt" <= ${to}
-    GROUP BY oi."productId", oi."productNameSnapshot"
-    ORDER BY quantity DESC, revenue DESC
-    LIMIT ${query.limit}
-  `;
+  const rows = await request.withTenant(
+    (db) =>
+      db.$queryRaw<Row[]>`
+      SELECT
+        oi."productId"           AS "productId",
+        oi."productNameSnapshot" AS name,
+        SUM(oi.quantity)         AS quantity,
+        SUM(oi."unitPrice" * oi.quantity) AS revenue
+      FROM "order_item" oi
+      JOIN "order" o ON o.id = oi."orderId"
+      WHERE oi."organizationId" = ${tenantId}
+        AND o.status = 'finished'
+        AND o."createdAt" >= ${from}
+        AND o."createdAt" <= ${to}
+      GROUP BY oi."productId", oi."productNameSnapshot"
+      ORDER BY quantity DESC, revenue DESC
+      LIMIT ${query.limit}
+    `,
+  );
 
   return {
     data: {
@@ -137,15 +143,17 @@ export async function paymentsReportHandler(request: FastifyRequest, reply: Fast
   const query = paymentsReportQuerySchema.parse(request.query);
   const { from, to } = resolveRange(query);
 
-  const grouped = await request.server.prisma.payment.groupBy({
-    by: ['method'],
-    where: {
-      organizationId: tenantId,
-      createdAt: { gte: from, lte: to },
-    },
-    _sum: { amount: true },
-    _count: { _all: true },
-  });
+  const grouped = await request.withTenant((db) =>
+    db.payment.groupBy({
+      by: ['method'],
+      where: {
+        organizationId: tenantId,
+        createdAt: { gte: from, lte: to },
+      },
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+  );
 
   const methods: PaymentMethodValue[] = ['cash', 'credit_card', 'debit_card', 'pix'];
   const byMethod = methods.reduce<Record<string, { amount: string; count: number }>>(
@@ -190,23 +198,25 @@ export async function summaryReportHandler(request: FastifyRequest, reply: Fasti
 
   const dateFilter = { createdAt: { gte: from, lte: to } };
 
-  const [finishedAgg, cancelledCount, itemsAgg] = await Promise.all([
-    request.server.prisma.order.aggregate({
-      where: { organizationId: tenantId, status: 'finished', ...dateFilter },
-      _count: { _all: true },
-      _sum: { total: true },
-    }),
-    request.server.prisma.order.count({
-      where: { organizationId: tenantId, status: 'cancelled', ...dateFilter },
-    }),
-    request.server.prisma.orderItem.aggregate({
-      where: {
-        organizationId: tenantId,
-        order: { status: 'finished', ...dateFilter },
-      },
-      _sum: { quantity: true },
-    }),
-  ]);
+  const [finishedAgg, cancelledCount, itemsAgg] = await request.withTenant((db) =>
+    Promise.all([
+      db.order.aggregate({
+        where: { organizationId: tenantId, status: 'finished', ...dateFilter },
+        _count: { _all: true },
+        _sum: { total: true },
+      }),
+      db.order.count({
+        where: { organizationId: tenantId, status: 'cancelled', ...dateFilter },
+      }),
+      db.orderItem.aggregate({
+        where: {
+          organizationId: tenantId,
+          order: { status: 'finished', ...dateFilter },
+        },
+        _sum: { quantity: true },
+      }),
+    ]),
+  );
 
   const finishedCount = finishedAgg._count._all;
   const revenue = finishedAgg._sum.total ?? ZERO;

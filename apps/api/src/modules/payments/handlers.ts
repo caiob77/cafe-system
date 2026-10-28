@@ -42,19 +42,27 @@ export async function listOrderPaymentsHandler(request: FastifyRequest, reply: F
 
   const { id } = orderPaymentsParamSchema.parse(request.params);
 
-  const order = await request.server.prisma.order.findFirst({
-    where: { id, organizationId: tenantId },
-    select: { id: true, total: true },
+  const result = await request.withTenant(async (db) => {
+    const order = await db.order.findFirst({
+      where: { id, organizationId: tenantId },
+      select: { id: true, total: true },
+    });
+
+    if (!order) return { kind: 'not_found' as const };
+
+    const payments = await db.payment.findMany({
+      where: { orderId: id, organizationId: tenantId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return { kind: 'ok' as const, order, payments };
   });
 
-  if (!order) {
+  if (result.kind === 'not_found') {
     return reply.code(404).send(error('order_not_found', 'Pedido não encontrado'));
   }
 
-  const payments = await request.server.prisma.payment.findMany({
-    where: { orderId: id, organizationId: tenantId },
-    orderBy: { createdAt: 'asc' },
-  });
+  const { order, payments } = result;
 
   const paid = payments.reduce((acc, payment) => acc.add(payment.amount), ZERO);
   const remaining = order.total.sub(paid);
@@ -79,9 +87,11 @@ export async function createOrderPaymentHandler(request: FastifyRequest, reply: 
   const body = createPaymentSchema.parse(request.body);
   const idempotencyKey = body.idempotencyKey ?? randomUUID();
 
-  const existingByKey = await request.server.prisma.payment.findUnique({
-    where: { idempotencyKey },
-  });
+  const existingByKey = await request.withTenant((db) =>
+    db.payment.findUnique({
+      where: { idempotencyKey },
+    }),
+  );
   if (existingByKey) {
     if (existingByKey.organizationId !== tenantId || existingByKey.orderId !== orderId) {
       return reply.code(409).send(error('idempotency_conflict', 'idempotencyKey já utilizado'));
@@ -89,10 +99,12 @@ export async function createOrderPaymentHandler(request: FastifyRequest, reply: 
     return reply.code(200).send({ data: serializePayment(existingByKey) });
   }
 
-  const openRegister = await request.server.prisma.cashRegister.findFirst({
-    where: { organizationId: tenantId, closedAt: null },
-    select: { id: true },
-  });
+  const openRegister = await request.withTenant((db) =>
+    db.cashRegister.findFirst({
+      where: { organizationId: tenantId, closedAt: null },
+      select: { id: true },
+    }),
+  );
   if (!openRegister) {
     return reply
       .code(409)
@@ -108,7 +120,7 @@ export async function createOrderPaymentHandler(request: FastifyRequest, reply: 
       : null;
 
   try {
-    const result = await request.server.prisma.$transaction(async (tx) => {
+    const result = await request.withTenant(async (tx) => {
       await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM "order"
         WHERE id = ${orderId} AND "organizationId" = ${tenantId}
@@ -202,26 +214,28 @@ export async function createOrderPaymentHandler(request: FastifyRequest, reply: 
     const remaining = result.order.total.sub(result.paid);
 
     if (result.order.status === 'finished') {
-      const [fullOrder, allPayments, org] = await Promise.all([
-        request.server.prisma.order.findUnique({
-          where: { id: result.order.id },
-          include: {
-            items: { include: { addons: true } },
-            table: true,
-            customer: true,
-          },
-        }),
-        request.server.prisma.payment.findMany({
-          where: { orderId: result.order.id, organizationId: tenantId },
-          orderBy: { createdAt: 'asc' },
-        }),
-        request.server.prisma.organization.findUnique({
-          where: { id: tenantId },
-          select: { name: true },
-        }),
-      ]);
-      if (fullOrder && org) {
-        const receiptJob = await request.server.prisma.printJob.create({
+      const receiptJob = await request.withTenant(async (db) => {
+        const [fullOrder, allPayments, org] = await Promise.all([
+          db.order.findUnique({
+            where: { id: result.order.id },
+            include: {
+              items: { include: { addons: true } },
+              table: true,
+              customer: true,
+            },
+          }),
+          db.payment.findMany({
+            where: { orderId: result.order.id, organizationId: tenantId },
+            orderBy: { createdAt: 'asc' },
+          }),
+          db.organization.findUnique({
+            where: { id: tenantId },
+            select: { name: true },
+          }),
+        ]);
+        if (!fullOrder || !org) return null;
+
+        return db.printJob.create({
           data: {
             organizationId: tenantId,
             orderId: fullOrder.id,
@@ -229,6 +243,8 @@ export async function createOrderPaymentHandler(request: FastifyRequest, reply: 
             payload: buildPaymentReceipt(fullOrder, allPayments, org.name),
           },
         });
+      });
+      if (receiptJob) {
         request.server.realtime.publish(tenantId, {
           type: 'print_job_queued',
           payload: {
@@ -259,9 +275,11 @@ export async function createOrderPaymentHandler(request: FastifyRequest, reply: 
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      const conflict = await request.server.prisma.payment.findUnique({
-        where: { idempotencyKey },
-      });
+      const conflict = await request.withTenant((db) =>
+        db.payment.findUnique({
+          where: { idempotencyKey },
+        }),
+      );
       if (conflict && conflict.orderId === orderId && conflict.organizationId === tenantId) {
         return reply.code(200).send({ data: serializePayment(conflict) });
       }

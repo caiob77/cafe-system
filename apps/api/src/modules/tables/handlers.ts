@@ -75,29 +75,31 @@ export async function listTablesHandler(request: FastifyRequest, reply: FastifyR
 
   const query = listTablesQuerySchema.parse(request.query);
 
-  const tables = await request.server.prisma.table.findMany({
-    where: {
-      organizationId: tenantId,
-      ...(query.includeDeleted ? {} : { deletedAt: null }),
-    },
-    orderBy: [{ number: 'asc' }],
-  });
+  const tables = await request.withTenant((db) =>
+    db.table.findMany({
+      where: {
+        ...(query.includeDeleted ? {} : { deletedAt: null }),
+      },
+      orderBy: [{ number: 'asc' }],
+    }),
+  );
 
   if (tables.length === 0) {
     return { data: [] };
   }
 
   const tableIds = tables.map((table) => table.id);
-  const activeOrders = await request.server.prisma.order.findMany({
-    where: {
-      organizationId: tenantId,
-      tableId: { in: tableIds },
-      type: 'dine_in',
-      status: { in: [...ACTIVE_ORDER_STATUSES, ...AWAITING_PAYMENT_STATUSES] },
-    },
-    select: { id: true, tableId: true, status: true, createdAt: true },
-    orderBy: { createdAt: 'asc' },
-  });
+  const activeOrders = await request.withTenant((db) =>
+    db.order.findMany({
+      where: {
+        tableId: { in: tableIds },
+        type: 'dine_in',
+        status: { in: [...ACTIVE_ORDER_STATUSES, ...AWAITING_PAYMENT_STATUSES] },
+      },
+      select: { id: true, tableId: true, status: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+  );
 
   const ordersByTable = new Map<string, ActiveOrderInfo[]>();
   for (const order of activeOrders) {
@@ -126,26 +128,32 @@ export async function createTableHandler(request: FastifyRequest, reply: Fastify
 
   const body = createTableSchema.parse(request.body);
 
-  const existing = await request.server.prisma.table.findFirst({
-    where: { organizationId: tenantId, number: body.number, deletedAt: null },
-    select: { id: true },
+  const result = await request.withTenant(async (db) => {
+    const existing = await db.table.findFirst({
+      where: { number: body.number, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (existing) return { kind: 'duplicate' as const };
+
+    const table = await db.table.create({
+      data: {
+        organizationId: tenantId,
+        number: body.number,
+        capacity: body.capacity ?? 4,
+      },
+    });
+
+    return { kind: 'ok' as const, table };
   });
 
-  if (existing) {
+  if (result.kind === 'duplicate') {
     return reply
       .code(409)
       .send(error('table_already_exists', 'Já existe uma mesa com esse número'));
   }
 
-  const table = await request.server.prisma.table.create({
-    data: {
-      organizationId: tenantId,
-      number: body.number,
-      capacity: body.capacity ?? 4,
-    },
-  });
-
-  return reply.code(201).send({ data: serializeTable(table, 'free', null) });
+  return reply.code(201).send({ data: serializeTable(result.table, 'free', null) });
 }
 
 export async function updateTableHandler(request: FastifyRequest, reply: FastifyReply) {
@@ -155,53 +163,62 @@ export async function updateTableHandler(request: FastifyRequest, reply: Fastify
   const { id } = tableIdParamSchema.parse(request.params);
   const body = updateTableSchema.parse(request.body);
 
-  const table = await request.server.prisma.table.findFirst({
-    where: { id, organizationId: tenantId, deletedAt: null },
-  });
-
-  if (!table) {
-    return reply.code(404).send(error('table_not_found', 'Mesa não encontrada'));
-  }
-
-  if (body.number !== undefined && body.number !== table.number) {
-    const conflict = await request.server.prisma.table.findFirst({
-      where: {
-        organizationId: tenantId,
-        number: body.number,
-        deletedAt: null,
-        id: { not: id },
-      },
-      select: { id: true },
+  const result = await request.withTenant(async (db) => {
+    const table = await db.table.findFirst({
+      where: { id, deletedAt: null },
     });
 
-    if (conflict) {
-      return reply
-        .code(409)
-        .send(error('table_already_exists', 'Já existe uma mesa com esse número'));
+    if (!table) return { kind: 'not_found' as const };
+
+    if (body.number !== undefined && body.number !== table.number) {
+      const conflict = await db.table.findFirst({
+        where: {
+          number: body.number,
+          deletedAt: null,
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+
+      if (conflict) return { kind: 'duplicate' as const };
     }
+
+    const updated = await db.table.update({
+      where: { id },
+      data: {
+        ...(body.number === undefined ? {} : { number: body.number }),
+        ...(body.capacity === undefined ? {} : { capacity: body.capacity }),
+      },
+    });
+
+    const activeOrders = await db.order.findMany({
+      where: {
+        tableId: id,
+        type: 'dine_in',
+        status: { in: [...ACTIVE_ORDER_STATUSES, ...AWAITING_PAYMENT_STATUSES] },
+      },
+      select: { id: true, status: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return { kind: 'ok' as const, updated, activeOrders };
+  });
+
+  if (result.kind === 'not_found') {
+    return reply.code(404).send(error('table_not_found', 'Mesa não encontrada'));
+  }
+  if (result.kind === 'duplicate') {
+    return reply
+      .code(409)
+      .send(error('table_already_exists', 'Já existe uma mesa com esse número'));
   }
 
-  const updated = await request.server.prisma.table.update({
-    where: { id },
-    data: {
-      ...(body.number === undefined ? {} : { number: body.number }),
-      ...(body.capacity === undefined ? {} : { capacity: body.capacity }),
-    },
-  });
-
-  const activeOrders = await request.server.prisma.order.findMany({
-    where: {
-      organizationId: tenantId,
-      tableId: id,
-      type: 'dine_in',
-      status: { in: [...ACTIVE_ORDER_STATUSES, ...AWAITING_PAYMENT_STATUSES] },
-    },
-    select: { id: true, status: true },
-    orderBy: { createdAt: 'asc' },
-  });
-
   return {
-    data: serializeTable(updated, deriveStatus(activeOrders), pickActiveOrderId(activeOrders)),
+    data: serializeTable(
+      result.updated,
+      deriveStatus(result.activeOrders),
+      pickActiveOrderId(result.activeOrders),
+    ),
   };
 }
 
@@ -211,32 +228,38 @@ export async function deleteTableHandler(request: FastifyRequest, reply: Fastify
 
   const { id } = tableIdParamSchema.parse(request.params);
 
-  const table = await request.server.prisma.table.findFirst({
-    where: { id, organizationId: tenantId, deletedAt: null },
-    select: { id: true },
+  const result = await request.withTenant(async (db) => {
+    const table = await db.table.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!table) return { kind: 'not_found' as const };
+
+    const hasActive = await db.order.findFirst({
+      where: {
+        tableId: id,
+        status: { in: [...ACTIVE_ORDER_STATUSES, ...AWAITING_PAYMENT_STATUSES] },
+      },
+      select: { id: true },
+    });
+
+    if (hasActive) return { kind: 'has_active' as const };
+
+    const deleted = await db.table.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    return { kind: 'ok' as const, deleted };
   });
 
-  if (!table) {
+  if (result.kind === 'not_found') {
     return reply.code(404).send(error('table_not_found', 'Mesa não encontrada'));
   }
-
-  const hasActive = await request.server.prisma.order.findFirst({
-    where: {
-      organizationId: tenantId,
-      tableId: id,
-      status: { in: [...ACTIVE_ORDER_STATUSES, ...AWAITING_PAYMENT_STATUSES] },
-    },
-    select: { id: true },
-  });
-
-  if (hasActive) {
+  if (result.kind === 'has_active') {
     return reply.code(409).send(error('table_has_active_order', 'Mesa possui pedido em aberto'));
   }
 
-  const deleted = await request.server.prisma.table.update({
-    where: { id },
-    data: { deletedAt: new Date() },
-  });
-
-  return { data: serializeTable(deleted, 'free', null) };
+  return { data: serializeTable(result.deleted, 'free', null) };
 }

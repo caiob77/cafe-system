@@ -18,11 +18,7 @@ export const organizationRoutes: FastifyPluginAsync = async (app) => {
     updateProfileHandler,
   );
 
-  app.post(
-    '/complete-setup',
-    { preHandler: app.requireRole(['owner']) },
-    completeSetupHandler,
-  );
+  app.post('/complete-setup', { preHandler: app.requireRole(['owner']) }, completeSetupHandler);
 
   app.get('/plan', { preHandler: app.requireAuth }, getPlanHandler);
 

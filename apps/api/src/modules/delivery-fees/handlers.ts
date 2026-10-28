@@ -36,10 +36,11 @@ export async function listDeliveryFeesHandler(request: FastifyRequest, reply: Fa
   const tenantId = tenantIdOrReply(request, reply);
   if (!tenantId) return reply;
 
-  const fees = await request.server.prisma.deliveryNeighborhoodFee.findMany({
-    where: { organizationId: tenantId },
-    orderBy: { neighborhood: 'asc' },
-  });
+  const fees = await request.withTenant((db) =>
+    db.deliveryNeighborhoodFee.findMany({
+      orderBy: { neighborhood: 'asc' },
+    }),
+  );
 
   return { data: fees.map(serializeDeliveryFee) };
 }
@@ -50,12 +51,13 @@ export async function createDeliveryFeeHandler(request: FastifyRequest, reply: F
 
   const body = createDeliveryFeeSchema.parse(request.body);
 
-  const duplicate = await request.server.prisma.deliveryNeighborhoodFee.findFirst({
-    where: {
-      organizationId: tenantId,
-      neighborhood: { equals: body.neighborhood, mode: 'insensitive' },
-    },
-  });
+  const duplicate = await request.withTenant((db) =>
+    db.deliveryNeighborhoodFee.findFirst({
+      where: {
+        neighborhood: { equals: body.neighborhood, mode: 'insensitive' },
+      },
+    }),
+  );
   if (duplicate) {
     return reply.code(409).send({
       error: {
@@ -67,13 +69,15 @@ export async function createDeliveryFeeHandler(request: FastifyRequest, reply: F
   }
 
   try {
-    const fee = await request.server.prisma.deliveryNeighborhoodFee.create({
-      data: {
-        organizationId: tenantId,
-        neighborhood: body.neighborhood,
-        fee: new Prisma.Decimal(body.fee),
-      },
-    });
+    const fee = await request.withTenant((db) =>
+      db.deliveryNeighborhoodFee.create({
+        data: {
+          organizationId: tenantId,
+          neighborhood: body.neighborhood,
+          fee: new Prisma.Decimal(body.fee),
+        },
+      }),
+    );
     return reply.code(201).send({ data: serializeDeliveryFee(fee) });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -90,44 +94,49 @@ export async function updateDeliveryFeeHandler(request: FastifyRequest, reply: F
   const { id } = deliveryFeeIdParamSchema.parse(request.params);
   const body = updateDeliveryFeeSchema.parse(request.body);
 
-  const existing = await request.server.prisma.deliveryNeighborhoodFee.findFirst({
-    where: { id, organizationId: tenantId },
-  });
-  if (!existing) {
-    return reply.code(404).send(error('delivery_fee_not_found', 'Taxa de bairro não encontrada'));
-  }
+  try {
+    const result = await request.withTenant(async (db) => {
+      const existing = await db.deliveryNeighborhoodFee.findFirst({
+        where: { id },
+      });
+      if (!existing) return { kind: 'not_found' as const };
 
-  if (
-    body.neighborhood &&
-    body.neighborhood.toLowerCase() !== existing.neighborhood.toLowerCase()
-  ) {
-    const conflict = await request.server.prisma.deliveryNeighborhoodFee.findFirst({
-      where: {
-        organizationId: tenantId,
-        neighborhood: { equals: body.neighborhood, mode: 'insensitive' },
-        id: { not: id },
-      },
+      if (
+        body.neighborhood &&
+        body.neighborhood.toLowerCase() !== existing.neighborhood.toLowerCase()
+      ) {
+        const conflict = await db.deliveryNeighborhoodFee.findFirst({
+          where: {
+            neighborhood: { equals: body.neighborhood, mode: 'insensitive' },
+            id: { not: id },
+          },
+        });
+        if (conflict) return { kind: 'duplicate' as const, conflict };
+      }
+
+      const updated = await db.deliveryNeighborhoodFee.update({
+        where: { id },
+        data: {
+          ...(body.neighborhood === undefined ? {} : { neighborhood: body.neighborhood }),
+          ...(body.fee === undefined ? {} : { fee: new Prisma.Decimal(body.fee) }),
+        },
+      });
+      return { kind: 'ok' as const, updated };
     });
-    if (conflict) {
+
+    if (result.kind === 'not_found') {
+      return reply.code(404).send(error('delivery_fee_not_found', 'Taxa de bairro não encontrada'));
+    }
+    if (result.kind === 'duplicate') {
       return reply.code(409).send({
         error: {
           code: 'delivery_fee_neighborhood_taken',
-          message: `Já existe taxa para o bairro "${conflict.neighborhood}"`,
+          message: `Já existe taxa para o bairro "${result.conflict.neighborhood}"`,
         },
-        data: serializeDeliveryFee(conflict),
+        data: serializeDeliveryFee(result.conflict),
       });
     }
-  }
-
-  try {
-    const updated = await request.server.prisma.deliveryNeighborhoodFee.update({
-      where: { id },
-      data: {
-        ...(body.neighborhood === undefined ? {} : { neighborhood: body.neighborhood }),
-        ...(body.fee === undefined ? {} : { fee: new Prisma.Decimal(body.fee) }),
-      },
-    });
-    return { data: serializeDeliveryFee(updated) };
+    return { data: serializeDeliveryFee(result.updated) };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       return reply.code(409).send(error('delivery_fee_neighborhood_taken', 'Bairro já cadastrado'));
@@ -142,15 +151,19 @@ export async function deleteDeliveryFeeHandler(request: FastifyRequest, reply: F
 
   const { id } = deliveryFeeIdParamSchema.parse(request.params);
 
-  const existing = await request.server.prisma.deliveryNeighborhoodFee.findFirst({
-    where: { id, organizationId: tenantId },
+  const result = await request.withTenant(async (db) => {
+    const existing = await db.deliveryNeighborhoodFee.findFirst({
+      where: { id },
+    });
+    if (!existing) return { kind: 'not_found' as const };
+
+    const deleted = await db.deliveryNeighborhoodFee.delete({
+      where: { id },
+    });
+    return { kind: 'ok' as const, deleted };
   });
-  if (!existing) {
+  if (result.kind === 'not_found') {
     return reply.code(404).send(error('delivery_fee_not_found', 'Taxa de bairro não encontrada'));
   }
-
-  const deleted = await request.server.prisma.deliveryNeighborhoodFee.delete({
-    where: { id },
-  });
-  return { data: serializeDeliveryFee(deleted) };
+  return { data: serializeDeliveryFee(result.deleted) };
 }

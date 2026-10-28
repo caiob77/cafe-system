@@ -17,6 +17,7 @@
     "db:seed": "dotenv -e ../../.env -- prisma db seed",
     "db:reset": "dotenv -e ../../.env -- prisma migrate reset",
     "db:post-migrate": "dotenv -e ../../.env -- bash -c 'docker exec -i cafe-postgres psql -U cafe -d cafe < prisma/sql/post-migrate.sql'",
+    "db:roles": "dotenv -e ../../.env -- bash -c ': \"${RUNTIME_DB_PASSWORD:?Defina RUNTIME_DB_PASSWORD no .env}\"; : \"${ADMIN_DB_PASSWORD:?Defina ADMIN_DB_PASSWORD no .env}\"; docker exec -i cafe-postgres psql -U cafe -d cafe -v runtime_pw=\"$RUNTIME_DB_PASSWORD\" -v admin_pw=\"$ADMIN_DB_PASSWORD\" < prisma/sql/init-roles.sql'",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit"
   },

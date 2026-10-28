@@ -1,10 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 
-import {
-  getAdminMetricsHandler,
-  listTenantsHandler,
-  updateTenantHandler,
-} from './handlers.js';
+import { getAdminMetricsHandler, listTenantsHandler, updateTenantHandler } from './handlers.js';
 
 export const adminRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', app.requireSuperAdmin);

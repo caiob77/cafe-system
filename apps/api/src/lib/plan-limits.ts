@@ -1,4 +1,4 @@
-import type { PlanType, PrismaClient } from '@cafe/db';
+import type { PlanType, PrismaClient, TenantTx } from '@cafe/db';
 
 export type PlanLimits = {
   dailyOrders: number | null;
@@ -37,7 +37,7 @@ function endOfDayUTC(date: Date): Date {
 }
 
 export async function getPlanUsage(
-  prisma: PrismaClient,
+  prisma: PrismaClient | TenantTx,
   organizationId: string,
   now: Date = new Date(),
 ): Promise<PlanUsage> {
@@ -59,9 +59,7 @@ export async function getPlanUsage(
   return { ordersToday, members };
 }
 
-export type LimitCheck =
-  | { ok: true }
-  | { ok: false; code: string; message: string; limit: number };
+export type LimitCheck = { ok: true } | { ok: false; code: string; message: string; limit: number };
 
 export function checkDailyOrderLimit(plan: PlanType, ordersToday: number): LimitCheck {
   const limit = PLAN_LIMITS[plan].dailyOrders;

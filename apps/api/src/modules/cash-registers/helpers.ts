@@ -1,4 +1,4 @@
-import { Prisma, type PrismaClient } from '@cafe/db';
+import { Prisma, type PrismaClient, type TenantTx } from '@cafe/db';
 import type { PaymentMethodValue } from '@cafe/shared';
 
 const ZERO = new Prisma.Decimal(0);
@@ -29,7 +29,7 @@ function decimalToFixed(value: Prisma.Decimal | null | undefined): string {
 }
 
 export async function buildSummary(
-  prisma: PrismaClient,
+  prisma: PrismaClient | TenantTx,
   register: CashRegisterRecord,
 ): Promise<CashRegisterSummary> {
   const [paymentsGrouped, paymentsCount] = await Promise.all([
