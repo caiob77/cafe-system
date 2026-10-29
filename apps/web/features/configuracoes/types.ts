@@ -9,6 +9,7 @@ export type CafeProfile = {
 };
 
 export type UpdateCafeProfilePayload = {
+  slug?: string;
   name: string;
   logo: string | null;
   addressLine: string | null;
@@ -36,17 +37,18 @@ export type TeamMember = {
     name: string;
     email: string;
   };
+  /** Usuário das contas criadas pelo dono (login `usuario@slug`); null para quem entra por e-mail. */
+  username: string | null;
 };
 
-export type TeamInvitation = {
-  id: string;
-  email: string;
-  role: string;
-  status: string;
-  expiresAt: string;
+export type UpdateMemberAccessPayload = {
+  username?: string;
+  password?: string;
 };
 
-export type TeamSnapshot = {
-  members: TeamMember[];
-  invitations: TeamInvitation[];
+export type CreateMemberPayload = {
+  name: string;
+  username: string;
+  password: string;
+  role: 'manager' | 'attendant' | 'kitchen';
 };

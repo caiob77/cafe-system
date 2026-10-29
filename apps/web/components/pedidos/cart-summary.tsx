@@ -61,6 +61,7 @@ export function CartSummary({
                     {item.addons.length > 0 ? (
                       <p className="mt-1 text-xs text-muted-foreground">
                         {item.addons.map((addon) => `${addon.quantity}× ${addon.name}`).join(', ')}
+                        {item.quantity > 1 ? ' (cada)' : ''}
                       </p>
                     ) : null}
                     {item.notes ? (

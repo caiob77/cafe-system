@@ -15,10 +15,7 @@ function error(code: string, message: string) {
   return { error: { code, message } };
 }
 
-const MEMBER_INVITE_URLS = [
-  '/api/auth/organization/invite-member',
-  '/api/auth/organization/add-member',
-];
+const MEMBER_INVITE_URLS = ['/api/auth/organization/add-member'];
 
 export const planLimitsPlugin = fp(
   async (app) => {

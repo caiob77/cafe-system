@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authClient } from '@/lib/auth-client';
+import { loginIdentifierToEmail } from '@cafe/shared/member-login';
 
 export function LoginForm() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export function LoginForm() {
     setLoading(true);
 
     const { error: signInError } = await authClient.signIn.email({
-      email,
+      email: loginIdentifierToEmail(email),
       password,
     });
 
@@ -43,13 +44,16 @@ export function LoginForm() {
       <CardContent className="pt-6">
         <form className="space-y-5" onSubmit={onSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">E-mail ou usuário</Label>
             <Input
-              autoComplete="email"
+              autoCapitalize="none"
+              autoComplete="username"
               id="email"
               onChange={(event) => setEmail(event.target.value)}
+              placeholder="voce@email.com ou usuario@seu-cafe"
               required
-              type="email"
+              spellCheck={false}
+              type="text"
               value={email}
             />
           </div>

@@ -44,7 +44,7 @@ export function ItemSheet({
     (sum, addon) => sum + moneyToNumber(addon.price) * (addons[addon.id] ?? 0),
     0,
   );
-  const total = moneyToNumber(product.price) * quantity + addonsTotal;
+  const total = (moneyToNumber(product.price) + addonsTotal) * quantity;
 
   return (
     <Dialog.Root onOpenChange={(open) => !open && onClose()} open>
@@ -103,7 +103,7 @@ export function ItemSheet({
 
             {product.addons.length > 0 ? (
               <fieldset className="mt-6">
-                <legend className="text-sm font-medium">Adicionais</legend>
+                <legend className="text-sm font-medium">Adicionais por unidade</legend>
                 <ul className="mt-2">
                   {product.addons.map((addon) => {
                     const addonQuantity = addons[addon.id] ?? 0;
@@ -145,6 +145,12 @@ export function ItemSheet({
                     );
                   })}
                 </ul>
+                {quantity > 1 && selectedAddonCount > 0 ? (
+                  <output className="mt-2 block border border-[hsl(var(--line))] bg-muted/40 px-3 py-2 text-sm">
+                    Os adicionais valem para cada uma das {quantity} unidades. Se só algumas levam
+                    adicional, adicione essas unidades separadas.
+                  </output>
+                ) : null}
                 {addonLimitReached ? (
                   <p className="mt-2 text-sm text-muted-foreground">
                     Dá para incluir até 20 adicionais.

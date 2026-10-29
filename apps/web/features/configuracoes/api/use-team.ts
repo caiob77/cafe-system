@@ -3,10 +3,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useSessionUI } from '@/features/auth/context/session-ui-provider';
+import { apiClient } from '@/lib/api-client';
 import { authClient } from '@/lib/auth-client';
+import { parseMemberEmail } from '@cafe/shared/member-login';
 
-import type { InviteRole } from '../roles';
-import type { TeamInvitation, TeamMember, TeamSnapshot } from '../types';
+import type { MemberRole } from '../roles';
+import type { CreateMemberPayload, TeamMember, UpdateMemberAccessPayload } from '../types';
+
+type MemberAccessResult = { id: string; login: string };
+type CreatedMember = { id: string; user: { name: string }; login: string };
 
 export const teamKeys = {
   all: ['team'] as const,
@@ -22,16 +27,9 @@ type OrganizationActions = {
   getFullOrganization: (input: {
     query: { organizationId: string };
   }) => Promise<AuthResult>;
-  inviteMember: (body: {
-    email: string;
-    role: InviteRole;
-    organizationId: string;
-  }) => Promise<AuthResult>;
-  cancelInvitation: (body: { invitationId: string }) => Promise<AuthResult>;
-  removeMember: (body: { memberIdOrEmail: string; organizationId: string }) => Promise<AuthResult>;
   updateMemberRole: (body: {
     memberId: string;
-    role: InviteRole;
+    role: MemberRole;
     organizationId: string;
   }) => Promise<AuthResult>;
 };
@@ -57,49 +55,27 @@ function parseMember(value: unknown): TeamMember | null {
   const id = text(member.id);
   const userId = text(member.userId);
   if (!id || !userId) return null;
+  const email = text(profile.email);
   return {
     id,
     userId,
     role: text(member.role) || 'attendant',
     user: {
       name: text(profile.name) || 'Sem nome',
-      email: text(profile.email),
+      email,
     },
+    username: parseMemberEmail(email)?.username ?? null,
   };
 }
 
-function parseInvitation(value: unknown): TeamInvitation | null {
-  if (!value || typeof value !== 'object') return null;
-  const invitation = value as Record<string, unknown>;
-  const id = text(invitation.id);
-  const email = text(invitation.email);
-  if (!id || !email) return null;
-  const expiresAt = invitation.expiresAt;
-  return {
-    id,
-    email,
-    role: text(invitation.role) || 'attendant',
-    status: text(invitation.status) || 'pending',
-    expiresAt: expiresAt instanceof Date ? expiresAt.toISOString() : text(expiresAt),
-  };
-}
-
-function parseTeam(value: unknown): TeamSnapshot {
-  if (!value || typeof value !== 'object') return { members: [], invitations: [] };
+function parseMembers(value: unknown): TeamMember[] {
+  if (!value || typeof value !== 'object') return [];
   const organization = value as Record<string, unknown>;
-  const members = Array.isArray(organization.members)
-    ? organization.members.flatMap((member) => {
-        const parsed = parseMember(member);
-        return parsed ? [parsed] : [];
-      })
-    : [];
-  const invitations = Array.isArray(organization.invitations)
-    ? organization.invitations.flatMap((invitation) => {
-        const parsed = parseInvitation(invitation);
-        return parsed ? [parsed] : [];
-      })
-    : [];
-  return { members, invitations };
+  if (!Array.isArray(organization.members)) return [];
+  return organization.members.flatMap((member) => {
+    const parsed = parseMember(member);
+    return parsed ? [parsed] : [];
+  });
 }
 
 async function loadTeam(organizationId: string) {
@@ -107,7 +83,7 @@ async function loadTeam(organizationId: string) {
     query: { organizationId },
   });
   if (error) throw authError(error, 'Não foi possível carregar a equipe.');
-  return parseTeam(data);
+  return parseMembers(data);
 }
 
 export function useTeam() {
@@ -124,33 +100,30 @@ export function useTeam() {
   });
 }
 
-export function useInviteMember() {
+export function useCreateMember() {
   const queryClient = useQueryClient();
-  const { tenantId } = useSessionUI();
 
   return useMutation({
-    mutationFn: async (input: { email: string; role: InviteRole }) => {
-      if (!tenantId) throw new Error('Nenhum café ativo.');
-      const { error } = await organizationActions().inviteMember({
-        ...input,
-        organizationId: tenantId,
-      });
-      if (error) throw authError(error, 'Não foi possível enviar o convite.');
-    },
+    mutationFn: (input: CreateMemberPayload) =>
+      apiClient<{ data: CreatedMember }>('/api/v1/organization/members', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }).then((res) => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: teamKeys.all });
     },
   });
 }
 
-export function useCancelInvitation() {
+export function useUpdateMemberAccess() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (invitationId: string) => {
-      const { error } = await organizationActions().cancelInvitation({ invitationId });
-      if (error) throw authError(error, 'Não foi possível cancelar o convite.');
-    },
+    mutationFn: ({ memberId, ...input }: UpdateMemberAccessPayload & { memberId: string }) =>
+      apiClient<{ data: MemberAccessResult }>(`/api/v1/organization/members/${memberId}/access`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }).then((res) => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: teamKeys.all });
     },
@@ -159,17 +132,10 @@ export function useCancelInvitation() {
 
 export function useRemoveMember() {
   const queryClient = useQueryClient();
-  const { tenantId } = useSessionUI();
 
   return useMutation({
-    mutationFn: async (memberIdOrEmail: string) => {
-      if (!tenantId) throw new Error('Nenhum café ativo.');
-      const { error } = await organizationActions().removeMember({
-        memberIdOrEmail,
-        organizationId: tenantId,
-      });
-      if (error) throw authError(error, 'Não foi possível remover o membro.');
-    },
+    mutationFn: (memberId: string) =>
+      apiClient(`/api/v1/organization/members/${memberId}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: teamKeys.all });
     },
@@ -181,7 +147,7 @@ export function useUpdateMemberRole() {
   const { tenantId } = useSessionUI();
 
   return useMutation({
-    mutationFn: async (input: { memberId: string; role: InviteRole }) => {
+    mutationFn: async (input: { memberId: string; role: MemberRole }) => {
       if (!tenantId) throw new Error('Nenhum café ativo.');
       const { error } = await organizationActions().updateMemberRole({
         ...input,

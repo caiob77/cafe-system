@@ -10,7 +10,7 @@
     "start": "node --env-file=../../.env ./dist/server.js",
     "lint": "biome check .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test src/modules/orders/order-rules.test.ts"
+    "test": "node --import tsx --test src/modules/orders/order-rules.test.ts src/modules/organizations/member-login.test.ts"
   },
   "dependencies": {
     "@cafe/db": "workspace:*",

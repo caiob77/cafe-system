@@ -38,9 +38,7 @@ export function useSalesReport(filters: ReportFilters & { period: ReportPeriod }
         dateFrom: isoOrUndefined(filters.dateFrom),
         dateTo: isoOrUndefined(filters.dateTo),
       });
-      return apiClient<{ data: SalesReport }>(`/api/v1/reports/sales${qs}`).then(
-        (res) => res.data,
-      );
+      return apiClient<{ data: SalesReport }>(`/api/v1/reports/sales${qs}`).then((res) => res.data);
     },
     staleTime: 30_000,
   });

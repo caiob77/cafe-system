@@ -108,6 +108,7 @@ export async function updateProfileHandler(request: FastifyRequest, reply: Fasti
   if (!tenantId) return reply;
 
   const body = updateOrganizationProfileSchema.parse(request.body);
+  const prisma = request.server.prisma;
   const data: Prisma.OrganizationUpdateInput = {};
 
   if (body.name !== undefined) data.name = body.name;
@@ -116,13 +117,47 @@ export async function updateProfileHandler(request: FastifyRequest, reply: Fasti
   if (body.phone !== undefined) data.phone = body.phone;
   if (body.brandColor !== undefined) data.brandColor = body.brandColor;
 
-  const updated = await request.server.prisma.organization.update({
-    where: { id: tenantId },
-    data,
-    select: ORG_SELECT,
-  });
+  let slugChanged = false;
+  if (body.slug !== undefined) {
+    const current = await prisma.organization.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    });
+    if (!current) {
+      return reply.code(404).send(error('organization_not_found', 'Organização não encontrada'));
+    }
+    slugChanged = body.slug !== current.slug;
+  }
 
-  return { data: serializeOrganization(updated) };
+  if (slugChanged && body.slug) {
+    if (request.role !== 'owner') {
+      return reply
+        .code(403)
+        .send(error('forbidden', 'Só o proprietário altera o endereço do café'));
+    }
+    const taken = await prisma.organization.findUnique({
+      where: { slug: body.slug },
+      select: { id: true },
+    });
+    if (taken) {
+      return reply.code(409).send(error('slug_taken', 'Este endereço já está em uso'));
+    }
+    data.slug = body.slug;
+  }
+
+  try {
+    const updated = await prisma.organization.update({
+      where: { id: tenantId },
+      data,
+      select: ORG_SELECT,
+    });
+    return { data: serializeOrganization(updated) };
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return reply.code(409).send(error('slug_taken', 'Este endereço já está em uso'));
+    }
+    throw err;
+  }
 }
 
 export async function completeSetupHandler(request: FastifyRequest, reply: FastifyReply) {

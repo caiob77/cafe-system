@@ -54,6 +54,9 @@ uploads/
 .codex 
 context-front.md
 docs/*
+!docs/producao.md
+!docs/desenvolvimento.md
+!docs/rls.md
 tabela-produtos.md
 codex-task.md
 

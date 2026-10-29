@@ -8,6 +8,7 @@ export type ResolvedAddon = {
   addonNameSnapshot: string;
   quantity: number;
   unitPrice: Prisma.Decimal;
+  scalesWithItem: boolean;
 };
 
 export type ResolvedItem = {
@@ -119,8 +120,9 @@ export async function resolveItemsForOrder(
       resolvedAddons.push({
         productAddonId: addon.id,
         addonNameSnapshot: addon.name,
-        quantity: clampQuantity(inputAddon.quantity ?? item.quantity),
+        quantity: clampQuantity(inputAddon.quantity ?? 1),
         unitPrice: addon.price,
+        scalesWithItem: true,
       });
     }
 
@@ -147,15 +149,27 @@ function normalizeNotes(notes: string | null | undefined): string | null {
   return trimmed.length === 0 ? null : trimmed;
 }
 
+export function addonTotalQuantity(
+  addon: { quantity: number; scalesWithItem: boolean },
+  itemQuantity: number,
+): number {
+  return addon.scalesWithItem ? addon.quantity * itemQuantity : addon.quantity;
+}
+
+export function calculateItemLineTotal(item: {
+  quantity: number;
+  unitPrice: Prisma.Decimal;
+  addons: Array<{ quantity: number; unitPrice: Prisma.Decimal; scalesWithItem: boolean }>;
+}): Prisma.Decimal {
+  const addonsTotal = item.addons.reduce(
+    (s, addon) => s.add(addon.unitPrice.mul(addonTotalQuantity(addon, item.quantity))),
+    ZERO,
+  );
+  return item.unitPrice.mul(item.quantity).add(addonsTotal);
+}
+
 export function calculateItemsSubtotal(items: ResolvedItem[]): Prisma.Decimal {
-  return items.reduce((acc, item) => {
-    const itemTotal = item.unitPrice.mul(item.quantity);
-    const addonsTotal = item.addons.reduce(
-      (s, addon) => s.add(addon.unitPrice.mul(addon.quantity)),
-      ZERO,
-    );
-    return acc.add(itemTotal).add(addonsTotal);
-  }, ZERO);
+  return items.reduce((acc, item) => acc.add(calculateItemLineTotal(item)), ZERO);
 }
 
 export function calculateOrderTotal(

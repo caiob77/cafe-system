@@ -368,13 +368,15 @@ model Order {
   kitchenNotes    String?
   deliveryAddress String? // snapshot do endereço de entrega (independe de Customer mudar)
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  finishedAt    DateTime?
-  cancelledAt   DateTime?
-  cancelReason  String?
-  cancelledById String?
-  cancelledBy   User?     @relation("orderCancelledBy", fields: [cancelledById], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  finishedAt      DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  cancelledById   String?
+  cancelledBy     User?     @relation("orderCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  // Nome gravado quando o usuário é apagado (membro removido do café).
+  cancelledByName String?
 
   items     OrderItem[]
   payments  Payment[]
@@ -423,6 +425,9 @@ model OrderItemAddon {
   addonNameSnapshot String
   quantity          Int          @default(1)
   unitPrice         Decimal      @db.Decimal(10, 2)
+  /// true: `quantity` é por unidade do item e o total multiplica pela quantidade do item.
+  /// false: linhas gravadas antes dessa regra, em que `quantity` já é o total.
+  scalesWithItem    Boolean      @default(true)
 
   @@index([organizationId])
   @@index([orderItemId])
@@ -454,10 +459,13 @@ model CashRegister {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  openedById     String
-  openedBy       User         @relation("opener", fields: [openedById], references: [id])
+  // Ids ficam nulos quando o usuário é apagado; o nome fica nos campos *ByName.
+  openedById     String?
+  openedBy       User?        @relation("opener", fields: [openedById], references: [id], onDelete: SetNull)
+  openedByName   String?
   closedById     String?
-  closedBy       User?        @relation("closer", fields: [closedById], references: [id])
+  closedBy       User?        @relation("closer", fields: [closedById], references: [id], onDelete: SetNull)
+  closedByName   String?
   openedAt       DateTime     @default(now())
   closedAt       DateTime?
   initialAmount  Decimal      @db.Decimal(10, 2)
@@ -484,8 +492,9 @@ model CashMovement {
   type           CashMovementType
   amount         Decimal          @db.Decimal(10, 2)
   reason         String
-  createdById    String
-  createdBy      User             @relation(fields: [createdById], references: [id])
+  createdById    String?
+  createdBy      User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdByName  String?
   createdAt      DateTime         @default(now())
 
   @@index([organizationId])

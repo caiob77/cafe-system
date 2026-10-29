@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import type { Order, OrderStatus } from '@/features/pedidos/types';
+import { orderAddonTotalQuantity } from '@/features/pedidos/utils/draft';
 import {
   getAllowedTransitions,
   orderStatusBadgeStyle,
@@ -72,7 +73,12 @@ export function KitchenTicketCard({ order, pendingAdvance, onAdvance }: KitchenT
             </span>
             {item.addons.length > 0 ? (
               <span className="pl-3 text-xs text-muted-foreground">
-                {item.addons.map((addon) => `+ ${addon.addonNameSnapshot}`).join(', ')}
+                {item.addons
+                  .map(
+                    (addon) =>
+                      `+ ${orderAddonTotalQuantity(addon, item.quantity)}× ${addon.addonNameSnapshot}`,
+                  )
+                  .join(', ')}
               </span>
             ) : null}
             {item.notes ? (

@@ -9,6 +9,7 @@ export * from './schemas/payment.schema.js';
 export * from './schemas/customer.schema.js';
 export * from './schemas/delivery.schema.js';
 export * from './schemas/organization.schema.js';
+export * from './schemas/member.schema.js';
 export * from './schemas/delivery-fee.schema.js';
 export * from './schemas/print-job.schema.js';
 export * from './schemas/printer-device.schema.js';

@@ -5,7 +5,7 @@ export type CashMovement = {
   type: CashMovementType;
   amount: string;
   reason: string;
-  createdById: string;
+  createdById: string | null;
   createdAt: string;
 };
 
@@ -31,7 +31,7 @@ export type CashRegisterSummary = {
 export type CashRegister = {
   id: string;
   organizationId: string;
-  openedById: string;
+  openedById: string | null;
   closedById: string | null;
   openedAt: string;
   closedAt: string | null;

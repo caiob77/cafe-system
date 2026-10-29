@@ -1,4 +1,4 @@
-import type { DraftOrderItem } from '../types';
+import type { DraftOrderItem, OrderItemAddon } from '../types';
 
 export function generateDraftItemId(): string {
   if (
@@ -11,21 +11,17 @@ export function generateDraftItemId(): string {
 }
 
 export function calculateDraftSubtotal(items: DraftOrderItem[]): number {
-  return items.reduce((total, item) => {
-    const itemTotal = Number(item.unitPrice) * item.quantity;
-    const addonsTotal = item.addons.reduce(
-      (sum, addon) => sum + Number(addon.unitPrice) * addon.quantity,
-      0,
-    );
-    return total + itemTotal + addonsTotal;
-  }, 0);
+  return items.reduce((total, item) => total + calculateDraftItemTotal(item), 0);
 }
 
 export function calculateDraftItemTotal(item: DraftOrderItem): number {
-  const itemTotal = Number(item.unitPrice) * item.quantity;
-  const addonsTotal = item.addons.reduce(
+  const addonsPerUnit = item.addons.reduce(
     (sum, addon) => sum + Number(addon.unitPrice) * addon.quantity,
     0,
   );
-  return itemTotal + addonsTotal;
+  return (Number(item.unitPrice) + addonsPerUnit) * item.quantity;
+}
+
+export function orderAddonTotalQuantity(addon: OrderItemAddon, itemQuantity: number): number {
+  return addon.scalesWithItem ? addon.quantity * itemQuantity : addon.quantity;
 }

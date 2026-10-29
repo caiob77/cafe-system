@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 
 import { formatPrice } from '@/features/cardapio/utils/format-price';
 import type { Order } from '@/features/pedidos/types';
+import { orderAddonTotalQuantity } from '@/features/pedidos/utils/draft';
 
 const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
   hour: '2-digit',
@@ -96,12 +97,15 @@ export function OrderSummary({
             </div>
             {item.addons.length > 0 ? (
               <ul className="ml-3 list-disc text-xs text-muted-foreground">
-                {item.addons.map((addon) => (
-                  <li key={addon.id}>
-                    {addon.quantity}× {addon.addonNameSnapshot} (+
-                    {formatPrice(Number(addon.unitPrice) * addon.quantity)})
-                  </li>
-                ))}
+                {item.addons.map((addon) => {
+                  const totalQuantity = orderAddonTotalQuantity(addon, item.quantity);
+                  return (
+                    <li key={addon.id}>
+                      {totalQuantity}× {addon.addonNameSnapshot} (+
+                      {formatPrice(Number(addon.unitPrice) * totalQuantity)})
+                    </li>
+                  );
+                })}
               </ul>
             ) : null}
             {item.notes ? (

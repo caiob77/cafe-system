@@ -7,6 +7,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./member-login": "./src/member-login.ts",
     "./schemas/*": "./src/schemas/*.ts",
     "./types/*": "./src/types/*.ts",
     "./enums": "./src/enums.ts"

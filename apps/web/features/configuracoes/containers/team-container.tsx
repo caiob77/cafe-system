@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Mail, UserMinus } from 'lucide-react';
+import { KeyRound, Loader2, UserMinus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
@@ -11,50 +11,77 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 
 import { useSessionUI } from '@/features/auth/context/session-ui-provider';
+import { MEMBER_USERNAME_PATTERN } from '@cafe/shared/member-login';
 
+import { useCafeProfile } from '../api/use-cafe-profile';
 import {
-  useCancelInvitation,
-  useInviteMember,
+  useCreateMember,
   useRemoveMember,
   useTeam,
+  useUpdateMemberAccess,
   useUpdateMemberRole,
 } from '../api/use-team';
-import { type InviteRole, inviteRoles, labelRole } from '../roles';
+import { MemberAccessDialog } from '../components/member-access-dialog';
+import { type MemberRole, labelRole, memberRoles } from '../roles';
+import type { TeamMember } from '../types';
 
-function formatWhen(value: string) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(date);
+function validateMember(name: string, username: string, password: string): string | null {
+  if (name.length < 2) return 'Informe o nome do membro.';
+  if (username.length < 3 || username.length > 32) {
+    return 'O usuário deve ter entre 3 e 32 caracteres.';
+  }
+  if (!MEMBER_USERNAME_PATTERN.test(username)) {
+    return 'No usuário, use letras minúsculas, números, ponto, hífen ou sublinhado, sem espaços.';
+  }
+  if (password.length < 8) return 'A senha deve ter ao menos 8 caracteres.';
+  return null;
 }
 
 export function TeamContainer() {
   const session = useSessionUI();
   const teamQuery = useTeam();
-  const inviteMember = useInviteMember();
-  const cancelInvitation = useCancelInvitation();
+  const cafeQuery = useCafeProfile();
+  const createMember = useCreateMember();
   const removeMember = useRemoveMember();
   const updateRole = useUpdateMemberRole();
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<InviteRole>('attendant');
+  const updateAccess = useUpdateMemberAccess();
+  const [editingAccess, setEditingAccess] = useState<TeamMember | null>(null);
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<MemberRole>('attendant');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  async function handleInvite() {
+  const isOwner = session.role === 'owner';
+  const canEditRoles = session.role === 'owner' || session.role === 'manager';
+  const slug = cafeQuery.data?.slug ?? null;
+  const normalizedUsername = username.trim().toLowerCase();
+  async function handleCreate() {
     setError(null);
     setNotice(null);
-    const trimmed = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setError('Informe um e-mail válido.');
+    const trimmedName = name.trim();
+    const invalid = validateMember(trimmedName, normalizedUsername, password);
+    if (invalid) {
+      setError(invalid);
       return;
     }
 
     try {
-      await inviteMember.mutateAsync({ email: trimmed, role });
-      setEmail('');
-      setNotice('Convite registrado. O envio de e-mail ainda só aparece no log da API.');
+      const created = await createMember.mutateAsync({
+        name: trimmedName,
+        username: normalizedUsername,
+        password,
+        role,
+      });
+      setName('');
+      setUsername('');
+      setPassword('');
+      setNotice(
+        `${created.user.name} cadastrado. Login: ${created.login}. Passe a senha para ele.`,
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível enviar o convite.');
+      setError(err instanceof Error ? err.message : 'Não foi possível cadastrar o membro.');
     }
   }
 
@@ -80,63 +107,97 @@ export function TeamContainer() {
     return <Alert variant="destructive">Não foi possível carregar a equipe.</Alert>;
   }
 
-  const pending = teamQuery.data.invitations.filter(
-    (invitation) => invitation.status === 'pending',
-  );
-
   return (
     <div className="flex max-w-2xl flex-col gap-4">
       {error ? <Alert variant="destructive">{error}</Alert> : null}
       {notice ? <Alert>{notice}</Alert> : null}
 
-      <form
-        className="grid grid-cols-1 gap-3 rounded-lg border bg-card p-4 shadow-sm md:grid-cols-[1fr_180px_auto] md:items-end"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void handleInvite();
-        }}
-      >
-        <div className="space-y-1.5">
-          <Label htmlFor="invite-email">Convidar por e-mail</Label>
-          <Input
-            id="invite-email"
-            onChange={(event) => setEmail(event.target.value)}
-            type="email"
-            value={email}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="invite-role">Papel</Label>
-          <Select
-            id="invite-role"
-            onChange={(event) => setRole(event.target.value as InviteRole)}
-            value={role}
-          >
-            {inviteRoles.map((option) => (
-              <option key={option} value={option}>
-                {labelRole(option)}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <Button disabled={inviteMember.isPending} type="submit">
-          {inviteMember.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Mail className="h-4 w-4" />
-          )}
-          Convidar
-        </Button>
-      </form>
+      {isOwner ? (
+        <form
+          className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleCreate();
+          }}
+        >
+          <h2 className="text-sm font-semibold">Cadastrar membro</h2>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="member-name">Nome</Label>
+              <Input
+                autoComplete="off"
+                id="member-name"
+                maxLength={120}
+                onChange={(event) => setName(event.target.value)}
+                value={name}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="member-role">Papel</Label>
+              <Select
+                id="member-role"
+                onChange={(event) => setRole(event.target.value as MemberRole)}
+                value={role}
+              >
+                {memberRoles.map((option) => (
+                  <option key={option} value={option}>
+                    {labelRole(option)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="member-username">Usuário</Label>
+              <Input
+                autoCapitalize="none"
+                autoComplete="off"
+                id="member-username"
+                maxLength={32}
+                onChange={(event) => setUsername(event.target.value)}
+                spellCheck={false}
+                value={username}
+              />
+              <p className="text-xs text-muted-foreground">
+                Login: {normalizedUsername || 'usuario'}@{slug ?? 'seu-cafe'}
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="member-password">Senha</Label>
+              <Input
+                autoComplete="new-password"
+                id="member-password"
+                maxLength={128}
+                minLength={8}
+                onChange={(event) => setPassword(event.target.value)}
+                type="password"
+                value={password}
+              />
+              <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres.</p>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button disabled={createMember.isPending} type="submit">
+              {createMember.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              Cadastrar
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <Alert>Só o proprietário cadastra e remove membros.</Alert>
+      )}
 
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold">Membros</h2>
         <ul className="flex flex-col gap-2">
-          {teamQuery.data.members.map((member) => {
+          {teamQuery.data.map((member) => {
             const isSelf = member.userId === session.user.id;
-            const isOwner = member.role === 'owner';
-            const editableRole = inviteRoles.includes(member.role as InviteRole)
-              ? (member.role as InviteRole)
+            const memberIsOwner = member.role === 'owner';
+            const editableRole = memberRoles.includes(member.role as MemberRole)
+              ? (member.role as MemberRole)
               : null;
             return (
               <li
@@ -145,10 +206,14 @@ export function TeamContainer() {
               >
                 <div>
                   <p className="text-sm font-medium">{member.user.name}</p>
-                  <p className="text-xs text-muted-foreground">{member.user.email}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {member.username
+                      ? `Login: ${member.username}@${slug ?? 'seu-cafe'}`
+                      : member.user.email}
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {isOwner || isSelf || !editableRole ? (
+                  {memberIsOwner || isSelf || !editableRole || !canEditRoles ? (
                     <Badge>{labelRole(member.role)}</Badge>
                   ) : (
                     <Select
@@ -160,29 +225,47 @@ export function TeamContainer() {
                           () =>
                             updateRole.mutateAsync({
                               memberId: member.id,
-                              role: event.target.value as InviteRole,
+                              role: event.target.value as MemberRole,
                             }),
                           'Não foi possível alterar o papel.',
                         )
                       }
                       value={editableRole}
                     >
-                      {inviteRoles.map((option) => (
+                      {memberRoles.map((option) => (
                         <option key={option} value={option}>
                           {labelRole(option)}
                         </option>
                       ))}
                     </Select>
                   )}
-                  {isSelf || isOwner ? null : (
+                  {!isOwner || isSelf || memberIsOwner || !member.username ? null : (
+                    <Button
+                      onClick={() => {
+                        setError(null);
+                        setNotice(null);
+                        setEditingAccess(member);
+                      }}
+                      type="button"
+                      variant="secondary"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                      Editar acesso
+                    </Button>
+                  )}
+                  {!isOwner || isSelf || memberIsOwner ? null : (
                     <Button
                       disabled={removeMember.isPending}
-                      onClick={() =>
+                      onClick={() => {
+                        const message = member.username
+                          ? `Remover ${member.user.name} da equipe? A conta e o login dele serão apagados.`
+                          : `Remover ${member.user.name} da equipe?`;
+                        if (!window.confirm(message)) return;
                         void run(
                           () => removeMember.mutateAsync(member.id),
                           'Não foi possível remover o membro.',
-                        )
-                      }
+                        );
+                      }}
                       type="button"
                       variant="destructive"
                     >
@@ -197,44 +280,24 @@ export function TeamContainer() {
         </ul>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">Convites pendentes</h2>
-        {pending.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum convite pendente.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {pending.map((invitation) => (
-              <li
-                className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-                key={invitation.id}
-              >
-                <div>
-                  <p className="text-sm font-medium">{invitation.email}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {labelRole(invitation.role)}
-                    {formatWhen(invitation.expiresAt)
-                      ? ` · expira em ${formatWhen(invitation.expiresAt)}`
-                      : ''}
-                  </p>
-                </div>
-                <Button
-                  disabled={cancelInvitation.isPending}
-                  onClick={() =>
-                    void run(
-                      () => cancelInvitation.mutateAsync(invitation.id),
-                      'Não foi possível cancelar o convite.',
-                    )
-                  }
-                  type="button"
-                  variant="secondary"
-                >
-                  Cancelar
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <MemberAccessDialog
+        loading={updateAccess.isPending}
+        member={editingAccess}
+        onOpenChange={(open) => {
+          if (!open) setEditingAccess(null);
+        }}
+        onSubmit={async (input) => {
+          if (!editingAccess) return;
+          const updated = await updateAccess.mutateAsync({ memberId: editingAccess.id, ...input });
+          setEditingAccess(null);
+          setNotice(
+            input.password
+              ? `Acesso de ${editingAccess.user.name} atualizado. Login: ${updated.login}. Passe a nova senha para ele.`
+              : `Login de ${editingAccess.user.name} atualizado para ${updated.login}.`,
+          );
+        }}
+        slug={slug}
+      />
     </div>
   );
 }

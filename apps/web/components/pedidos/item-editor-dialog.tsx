@@ -66,7 +66,7 @@ export function ItemEditorDialog({
             name: addon.name,
             unitPrice: addon.price,
             selected: Boolean(existing),
-            quantity: existing?.quantity ?? initialDraft.quantity,
+            quantity: existing?.quantity ?? 1,
           };
         }),
       );
@@ -140,10 +140,11 @@ export function ItemEditorDialog({
   }
 
   const itemTotal = product
-    ? Number(product.price) * quantity +
-      addons
-        .filter((addon) => addon.selected)
-        .reduce((sum, addon) => sum + Number(addon.unitPrice) * addon.quantity, 0)
+    ? (Number(product.price) +
+        addons
+          .filter((addon) => addon.selected)
+          .reduce((sum, addon) => sum + Number(addon.unitPrice) * addon.quantity, 0)) *
+      quantity
     : 0;
 
   return (
@@ -194,7 +195,7 @@ export function ItemEditorDialog({
 
             {addons.length > 0 ? (
               <div className="space-y-2">
-                <Label>Adicionais</Label>
+                <Label>Adicionais por unidade</Label>
                 <ul className="space-y-2">
                   {addons.map((addon) => (
                     <li
@@ -245,6 +246,12 @@ export function ItemEditorDialog({
                     </li>
                   ))}
                 </ul>
+                {quantity > 1 && addons.some((addon) => addon.selected) ? (
+                  <output className="block rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+                    Os adicionais valem para cada uma das {quantity} unidades. Se só algumas levam
+                    adicional, lance essas unidades como um item separado.
+                  </output>
+                ) : null}
               </div>
             ) : null}
 

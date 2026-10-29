@@ -71,21 +71,15 @@ export function CashRegisterContainer() {
       <section className="flex flex-col gap-2">
         <header className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Movimentos do caixa</h3>
-          <span className="text-xs text-muted-foreground">{register.movements.length} registros</span>
+          <span className="text-xs text-muted-foreground">
+            {register.movements.length} registros
+          </span>
         </header>
         <MovementsList movements={register.movements} />
       </section>
 
-      <MovementDialog
-        onOpenChange={setMovementOpen}
-        open={movementOpen}
-        registerId={register.id}
-      />
-      <CloseRegisterDialog
-        onOpenChange={setCloseOpen}
-        open={closeOpen}
-        register={register}
-      />
+      <MovementDialog onOpenChange={setMovementOpen} open={movementOpen} registerId={register.id} />
+      <CloseRegisterDialog onOpenChange={setCloseOpen} open={closeOpen} register={register} />
     </div>
   );
 }

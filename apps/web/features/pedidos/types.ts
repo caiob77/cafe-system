@@ -14,6 +14,7 @@ export type OrderItemAddon = {
   addonNameSnapshot: string;
   quantity: number;
   unitPrice: string;
+  scalesWithItem: boolean;
 };
 
 export type OrderItem = {

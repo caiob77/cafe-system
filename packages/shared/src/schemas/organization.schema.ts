@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { ORGANIZATION_SLUG_PATTERN } from '../member-login.js';
 import { deliveryScheduleSchema } from './delivery.schema.js';
 
 function trimmed(maxLen: number, message: string) {
@@ -16,8 +17,21 @@ const brandColorSchema = z
   .regex(/^#[0-9A-Fa-f]{6}$/, 'Cor deve estar no formato #RRGGBB')
   .transform((value) => value.toUpperCase());
 
+export const organizationSlugSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.toLowerCase())
+  .pipe(
+    z
+      .string()
+      .min(3, 'Slug deve ter ao menos 3 caracteres')
+      .max(48, 'Slug deve ter no máximo 48 caracteres')
+      .regex(ORGANIZATION_SLUG_PATTERN, 'Use letras minúsculas, números e hífen'),
+  );
+
 export const updateOrganizationProfileSchema = z
   .object({
+    slug: organizationSlugSchema.optional(),
     logo: z.union([z.string().url('Logo deve ser uma URL válida'), z.null()]).optional(),
     name: trimmed(120, 'Nome muito longo').optional(),
     addressLine: z.union([trimmed(200, 'Endereço muito longo'), z.null()]).optional(),
@@ -49,9 +63,7 @@ const completeSetupPrinterSchema = z.object({
 
 export const completeSetupSchema = z
   .object({
-    addressLine: z
-      .union([trimmed(200, 'Endereço muito longo'), z.null()])
-      .optional(),
+    addressLine: z.union([trimmed(200, 'Endereço muito longo'), z.null()]).optional(),
     phone: z.union([trimmed(40, 'Telefone muito longo'), z.null()]).optional(),
     tableCount: z
       .number()

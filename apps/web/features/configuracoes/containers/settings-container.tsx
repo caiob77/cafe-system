@@ -28,7 +28,7 @@ const sections = [
     href: '/configuracoes/equipe',
     icon: ShieldCheck,
     title: 'Equipe e permissões',
-    description: 'Membros, papéis e convites do café ativo.',
+    description: 'Membros, papéis e acessos do café ativo.',
   },
   {
     href: '/configuracoes/impressao',

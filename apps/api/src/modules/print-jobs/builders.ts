@@ -1,6 +1,8 @@
 import type { Prisma } from '@cafe/db';
 import type { KitchenTicketPayload, PaymentMethodValue, ReceiptPayload } from '@cafe/shared';
 
+import { addonTotalQuantity, calculateItemLineTotal } from '../orders/helpers.js';
+
 type OrderWithRelations = Prisma.OrderGetPayload<{
   include: {
     items: { include: { addons: true } };
@@ -27,7 +29,7 @@ export function buildKitchenTicket(order: OrderWithRelations): KitchenTicketPayl
       notes: item.notes,
       addons: item.addons.map((addon) => ({
         name: addon.addonNameSnapshot,
-        quantity: addon.quantity,
+        quantity: addonTotalQuantity(addon, item.quantity),
       })),
     })),
     kitchenNotes: order.kitchenNotes,
@@ -47,25 +49,18 @@ export function buildPaymentReceipt(
     dailyNumber: order.dailyNumber,
     orgName,
     orderType: order.type,
-    items: order.items.map((item) => {
-      const itemTotal = item.unitPrice.mul(item.quantity);
-      const addonsTotal = item.addons.reduce(
-        (acc, addon) => acc.add(addon.unitPrice.mul(addon.quantity)),
-        item.unitPrice.mul(0),
-      );
-      return {
-        name: item.productNameSnapshot,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice.toFixed(2),
-        lineTotal: itemTotal.add(addonsTotal).toFixed(2),
-        notes: item.notes,
-        addons: item.addons.map((addon) => ({
-          name: addon.addonNameSnapshot,
-          quantity: addon.quantity,
-          unitPrice: addon.unitPrice.toFixed(2),
-        })),
-      };
-    }),
+    items: order.items.map((item) => ({
+      name: item.productNameSnapshot,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice.toFixed(2),
+      lineTotal: calculateItemLineTotal(item).toFixed(2),
+      notes: item.notes,
+      addons: item.addons.map((addon) => ({
+        name: addon.addonNameSnapshot,
+        quantity: addonTotalQuantity(addon, item.quantity),
+        unitPrice: addon.unitPrice.toFixed(2),
+      })),
+    })),
     subtotal: order.subtotal.toFixed(2),
     discountAmount: order.discountAmount?.toFixed(2) ?? null,
     serviceChargeAmount: order.serviceChargeAmount?.toFixed(2) ?? null,

@@ -1,9 +1,16 @@
 import { hashPassword, prisma, verifyPassword } from '@cafe/db';
+import { isMemberEmail, memberEmail, parseMemberEmail } from '@cafe/shared';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { createAccessControl, organization } from 'better-auth/plugins';
 
 import { env } from './env.js';
+
+const DISABLED_INVITATION_PATHS = new Set([
+  '/organization/invite-member',
+  '/organization/accept-invitation',
+]);
 
 const statements = {
   organization: ['update', 'delete'],
@@ -54,6 +61,49 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (DISABLED_INVITATION_PATHS.has(ctx.path)) {
+        throw new APIError('GONE', {
+          message: 'Convites por e-mail foram desativados. O proprietário cadastra a equipe.',
+        });
+      }
+      // Troca de slug só pelo PATCH /organization/profile, que valida o formato e exige dono.
+      const data = (ctx.body as { data?: { slug?: unknown } } | undefined)?.data;
+      if (ctx.path === '/organization/update' && data?.slug !== undefined) {
+        throw new APIError('BAD_REQUEST', {
+          message: 'Altere o endereço do café pela tela de perfil.',
+        });
+      }
+
+      if (ctx.path === '/sign-in/email') {
+        const body = ctx.body as { email?: unknown } | undefined;
+        const login = typeof body?.email === 'string' ? parseMemberEmail(body.email) : null;
+        if (login) {
+          const org = await prisma.organization.findUnique({
+            where: { slug: login.scope },
+            select: { id: true },
+          });
+          if (!org) {
+            throw new APIError('UNAUTHORIZED', { message: 'Usuário ou senha inválidos' });
+          }
+          return { context: { body: { ...body, email: memberEmail(login.username, org.id) } } };
+        }
+      }
+    }),
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        // Membros com login `usuario@slug` são criados direto no banco pela API do café.
+        before: async (user) => {
+          if (isMemberEmail(user.email)) {
+            throw new APIError('BAD_REQUEST', { message: 'E-mail inválido' });
+          }
+        },
+      },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
@@ -71,12 +121,6 @@ export const auth = betterAuth({
         manager,
         attendant,
         kitchen,
-      },
-      sendInvitationEmail: async ({ email, id, organization }) => {
-        // Passo 1.4 não envia email ainda; logamos o link para teste local.
-        console.info(
-          `Convite para ${email} entrar em ${organization.name}: ${env.WEB_URL}/accept-invitation?id=${id}`,
-        );
       },
     }),
   ],

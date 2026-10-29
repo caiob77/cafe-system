@@ -7,11 +7,11 @@ export function moneyToNumber(value: string | null | undefined) {
 }
 
 export function cartItemTotal(item: PublicCartItem) {
-  const addonsTotal = item.addons.reduce(
+  const addonsPerUnit = item.addons.reduce(
     (sum, addon) => sum + moneyToNumber(addon.unitPrice) * addon.quantity,
     0,
   );
-  return moneyToNumber(item.unitPrice) * item.quantity + addonsTotal;
+  return (moneyToNumber(item.unitPrice) + addonsPerUnit) * item.quantity;
 }
 
 export function cartSubtotal(items: PublicCartItem[]) {

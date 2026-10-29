@@ -66,13 +66,10 @@ export function useCreateCashMovement(registerId: string | null) {
   return useMutation({
     mutationFn: (payload: CashMovementPayload) => {
       if (!registerId) throw new Error('Caixa não definido');
-      return apiClient<{ data: CashRegister }>(
-        `/api/v1/cash-registers/${registerId}/movements`,
-        {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        },
-      ).then((res) => res.data);
+      return apiClient<{ data: CashRegister }>(`/api/v1/cash-registers/${registerId}/movements`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }).then((res) => res.data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: cashRegisterKeys.all });

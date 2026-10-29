@@ -104,6 +104,7 @@ function serializeOrder(order: OrderRecord) {
         addonNameSnapshot: addon.addonNameSnapshot,
         quantity: addon.quantity,
         unitPrice: addon.unitPrice.toFixed(2),
+        scalesWithItem: addon.scalesWithItem,
       })),
     })),
   };
@@ -374,6 +375,7 @@ export async function createOrderHandler(request: FastifyRequest, reply: Fastify
                     addonNameSnapshot: addon.addonNameSnapshot,
                     quantity: addon.quantity,
                     unitPrice: addon.unitPrice,
+                    scalesWithItem: addon.scalesWithItem,
                   })),
                 },
               })),
@@ -538,6 +540,7 @@ export async function addOrderItemHandler(request: FastifyRequest, reply: Fastif
         addonNameSnapshot: addon.addonNameSnapshot,
         quantity: addon.quantity,
         unitPrice: addon.unitPrice,
+        scalesWithItem: addon.scalesWithItem,
       })),
     })),
     newItem,
@@ -562,6 +565,7 @@ export async function addOrderItemHandler(request: FastifyRequest, reply: Fastif
             addonNameSnapshot: addon.addonNameSnapshot,
             quantity: addon.quantity,
             unitPrice: addon.unitPrice,
+            scalesWithItem: addon.scalesWithItem,
           })),
         },
       },
@@ -645,6 +649,7 @@ export async function removeOrderItemHandler(request: FastifyRequest, reply: Fas
       addonNameSnapshot: addon.addonNameSnapshot,
       quantity: addon.quantity,
       unitPrice: addon.unitPrice,
+      scalesWithItem: addon.scalesWithItem,
     })),
   }));
 
