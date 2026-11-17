@@ -9,6 +9,7 @@ import { generateDraftItemId } from '@/features/pedidos/utils/draft';
 import { createPublicOrder, getPublicDeliverySettings, getPublicMenu } from '../api';
 import { applyBrandColor } from '../brand-color';
 import { cartSubtotal, makeIdempotencyKey, moneyToNumber } from '../cart';
+import { CategoryGallery } from '../components/category-gallery';
 import { CategoryRail } from '../components/category-rail';
 import { ItemSheet } from '../components/item-sheet';
 import { MenuList } from '../components/menu-list';
@@ -141,6 +142,8 @@ export function PublicStoreContainer({ slug }: PublicStoreContainerProps) {
   }, [checkoutOpen, isDesktop]);
 
   const products = menu?.products ?? [];
+  const selectedCategory =
+    menu?.categories.find((category) => category.id === selectedCategoryId) ?? null;
   const visibleProducts = selectedCategoryId
     ? products.filter((product) => product.categoryId === selectedCategoryId)
     : products;
@@ -333,6 +336,7 @@ export function PublicStoreContainer({ slug }: PublicStoreContainerProps) {
         dailyNumber={success.dailyNumber}
         onAnother={() => setSuccess(null)}
         organizationName={menu.organization.name}
+        phone={menu.organization.phone}
         total={success.total}
       />
     );
@@ -365,11 +369,12 @@ export function PublicStoreContainer({ slug }: PublicStoreContainerProps) {
   );
 
   return (
-    <main>
-      <div className="mx-auto grid w-full max-w-5xl lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start">
-        <div inert={menuInert ? true : undefined}>
+    <main className="min-w-0">
+      <div className="mx-auto grid w-full min-w-0 max-w-5xl grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:items-start">
+        <div className="min-w-0" inert={menuInert ? true : undefined}>
           <StoreHeader
             addressLine={menu.organization.addressLine}
+            bannerUrl={menu.organization.bannerUrl}
             deliveryEnabled={settings.deliveryEnabled}
             deliveryOpen={settings.deliveryOpen}
             logo={menu.organization.logo}
@@ -382,8 +387,21 @@ export function PublicStoreContainer({ slug }: PublicStoreContainerProps) {
             onSelect={setSelectedCategoryId}
             selectedId={selectedCategoryId}
           />
-          <div className={cart.length > 0 ? 'pb-32 lg:pb-0' : undefined}>
-            <MenuList onOpen={openEditor} products={visibleProducts} />
+          <div
+            className={cart.length > 0 ? 'pb-32 lg:pb-0' : undefined}
+            key={selectedCategoryId ?? 'all'}
+          >
+            {selectedCategory ? (
+              <CategoryGallery
+                categoryName={selectedCategory.name}
+                images={selectedCategory.galleryImages ?? []}
+              />
+            ) : null}
+            <MenuList
+              categoryName={selectedCategory?.name ?? null}
+              onOpen={openEditor}
+              products={visibleProducts}
+            />
           </div>
         </div>
         {panel}

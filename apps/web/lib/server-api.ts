@@ -25,6 +25,7 @@ export type OrganizationResponse = {
     name: string;
     slug: string;
     logo: string | null;
+    bannerUrl: string | null;
     addressLine: string | null;
     phone: string | null;
     brandColor: string | null;

@@ -1,5 +1,5 @@
 import { type Prisma, withTenantTx } from '@cafe/db';
-import { deliveryScheduleSchema, isDeliveryOpen } from '@cafe/shared';
+import { deliveryScheduleSchema, isDeliveryOpen, parseCategoryGalleryImages } from '@cafe/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { createOrderHandler } from '../orders/handlers.js';
@@ -17,6 +17,7 @@ async function resolvePublicOrganization(request: FastifyRequest, slug: string) 
       name: true,
       slug: true,
       logo: true,
+      bannerUrl: true,
       addressLine: true,
       phone: true,
       brandColor: true,
@@ -84,6 +85,7 @@ export async function getPublicMenuHandler(request: FastifyRequest, reply: Fasti
         name: org.name,
         slug: org.slug,
         logo: org.logo,
+        bannerUrl: org.bannerUrl,
         addressLine: org.addressLine,
         phone: org.phone,
         brandColor: org.brandColor,
@@ -93,6 +95,7 @@ export async function getPublicMenuHandler(request: FastifyRequest, reply: Fasti
         id: category.id,
         name: category.name,
         sortOrder: category.sortOrder,
+        galleryImages: parseCategoryGalleryImages(category.galleryImages),
       })),
       products: products.map((product) => ({
         id: product.id,

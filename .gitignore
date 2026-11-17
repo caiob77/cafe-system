@@ -47,7 +47,7 @@ Thumbs.db
 **/prisma/*.db-journal
 
 # Uploads (dev)
-uploads/
+/uploads/
 
 .claude 
 .agents/*

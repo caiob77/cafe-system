@@ -120,6 +120,7 @@ model Organization {
   addressLine        String?
   phone              String?
   brandColor         String?
+  bannerUrl          String?
   setupCompletedAt   DateTime?
   plan               PlanType  @default(free)
   planExpiresAt      DateTime?
@@ -240,6 +241,8 @@ model Category {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
   sortOrder      Int          @default(0)
+  /// Fotos de demonstração da seção (não por produto). Ex.: algumas tapiocas na aba Tapioca.
+  galleryImages  Json         @default("[]")
   active         Boolean      @default(true)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

@@ -3,6 +3,7 @@
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { CategoryGalleryField } from '@/components/cardapio/category-gallery-field';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-import type { Category, CategoryInput } from '@/features/cardapio/types';
+import type { Category, CategoryGalleryImage, CategoryInput } from '@/features/cardapio/types';
 
 type CategoryFormDialogProps = {
   open: boolean;
@@ -35,27 +36,32 @@ export function CategoryFormDialog({
   onSubmit,
 }: CategoryFormDialogProps) {
   const [name, setName] = useState('');
+  const [galleryImages, setGalleryImages] = useState<CategoryGalleryImage[]>([]);
+  const [uploading, setUploading] = useState(false);
   const isEditing = category !== null;
 
   useEffect(() => {
-    if (open) setName(category?.name ?? '');
+    if (!open) return;
+    setName(category?.name ?? '');
+    setGalleryImages(category?.galleryImages ?? []);
+    setUploading(false);
   }, [open, category]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (loading) return;
-    await onSubmit({ name: name.trim() });
+    if (loading || uploading) return;
+    await onSubmit({ name: name.trim(), galleryImages });
   }
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar categoria' : 'Nova categoria'}</DialogTitle>
           <DialogDescription>
             {isEditing
-              ? 'Atualize o nome dessa categoria do cardápio.'
-              : 'Crie uma seção do cardápio (ex.: Tapioca, Cuscuz, Pães).'}
+              ? 'Atualize o nome e as fotos de demonstração desta seção.'
+              : 'Crie uma seção do cardápio (ex.: Tapioca, Cuscuz) e opcionalmente fotos de demonstração.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -74,6 +80,13 @@ export function CategoryFormDialog({
             />
           </div>
 
+          <CategoryGalleryField
+            disabled={loading}
+            images={galleryImages}
+            onChange={setGalleryImages}
+            onUploadingChange={setUploading}
+          />
+
           {error ? (
             <p className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
@@ -84,7 +97,7 @@ export function CategoryFormDialog({
             <Button onClick={() => onOpenChange(false)} type="button" variant="ghost">
               Cancelar
             </Button>
-            <Button disabled={loading || name.trim().length < 2} type="submit">
+            <Button disabled={loading || uploading || name.trim().length < 2} type="submit">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {isEditing ? 'Salvar alterações' : 'Criar categoria'}
             </Button>

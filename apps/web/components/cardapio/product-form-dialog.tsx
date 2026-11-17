@@ -3,6 +3,7 @@
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { ImageUploadField } from '@/components/image-upload-field';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -84,6 +85,7 @@ export function ProductFormDialog({
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imagePublicId, setImagePublicId] = useState<string | null>(null);
   const [available, setAvailable] = useState(true);
   const [addonDrafts, setAddonDrafts] = useState<AddonDraft[]>([]);
   const [addonError, setAddonError] = useState<string | null>(null);
@@ -101,6 +103,7 @@ export function ProductFormDialog({
     setDescription(product?.description ?? '');
     setPrice(product?.price ?? '');
     setImageUrl(product?.imageUrl ?? '');
+    setImagePublicId(product?.imagePublicId ?? null);
     setAvailable(product?.available ?? true);
     setAddonDrafts(product ? addons.map(toDraft) : []);
     setAddonError(null);
@@ -115,6 +118,7 @@ export function ProductFormDialog({
       description: description.trim() === '' ? null : description.trim(),
       price: priceInputToApi(price),
       imageUrl: imageUrl.trim() === '' ? null : imageUrl.trim(),
+      imagePublicId: imageUrl.trim() === '' ? null : imagePublicId,
       available,
     });
   }
@@ -241,18 +245,18 @@ export function ProductFormDialog({
               />
             </div>
 
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="product-image">URL da imagem</Label>
-              <Input
+            <div className="sm:col-span-2">
+              <ImageUploadField
+                hint="Opcional. Prefira fotos de demonstração na categoria. Quadrada (1:1), até 5 MB."
                 id="product-image"
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://…"
-                type="url"
+                kind="product"
+                label="Foto do produto"
+                onChange={(image) => {
+                  setImageUrl(image.url);
+                  setImagePublicId(image.publicId);
+                }}
                 value={imageUrl}
               />
-              <p className="text-xs text-muted-foreground">
-                Cole uma URL pública por enquanto. Upload via Cloudinary entra numa fase futura.
-              </p>
             </div>
 
             <div className="flex items-center justify-between rounded-md border bg-muted/30 p-3 sm:col-span-2">

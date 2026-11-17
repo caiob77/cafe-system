@@ -19,7 +19,10 @@ import { ApiError } from '@/lib/api-client';
 
 import { priceInputToApi } from '@/features/cardapio/utils/format-price';
 
-import { useCreateDeliveryFee, useUpdateDeliveryFee } from '@/features/delivery/api/use-delivery-fees';
+import {
+  useCreateDeliveryFee,
+  useUpdateDeliveryFee,
+} from '@/features/delivery/api/use-delivery-fees';
 import type { DeliveryFee } from '@/features/delivery/types';
 
 type Props = {
@@ -69,9 +72,7 @@ export function DeliveryFeeFormDialog({ open, onOpenChange, fee }: Props) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar taxa' : 'Nova taxa por bairro'}</DialogTitle>
-          <DialogDescription>
-            Valor cobrado por entrega no bairro informado.
-          </DialogDescription>
+          <DialogDescription>Valor cobrado por entrega no bairro informado.</DialogDescription>
         </DialogHeader>
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-1.5">

@@ -1,8 +1,11 @@
 'use client';
 
-import { Loader2, Save } from 'lucide-react';
+import { Check, Loader2, Save } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
+import { ImageUploadField } from '@/components/image-upload-field';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +21,7 @@ import { useCafeProfile, useUpdateCafeProfile } from '../api/use-cafe-profile';
 
 export function CafeProfileContainer() {
   const session = useSessionUI();
+  const router = useRouter();
   const profileQuery = useCafeProfile();
   const updateProfile = useUpdateCafeProfile();
   const isOwner = session.role === 'owner';
@@ -26,11 +30,22 @@ export function CafeProfileContainer() {
   const [phone, setPhone] = useState('');
   const [addressLine, setAddressLine] = useState('');
   const [logo, setLogo] = useState('');
+  const [bannerUrl, setBannerUrl] = useState('');
   const [useBrandColor, setUseBrandColor] = useState(false);
   const [brandColor, setBrandColor] = useState(DEFAULT_BRAND_COLOR);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [ready, setReady] = useState(false);
+  const uploading = uploadingLogo || uploadingBanner;
+
+  useEffect(() => {
+    if (!justSaved) return;
+    const timer = window.setTimeout(() => setJustSaved(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [justSaved]);
 
   useEffect(() => {
     const profile = profileQuery.data;
@@ -40,6 +55,7 @@ export function CafeProfileContainer() {
     setPhone(profile.phone ?? '');
     setAddressLine(profile.addressLine ?? '');
     setLogo(profile.logo ?? '');
+    setBannerUrl(profile.bannerUrl ?? '');
     const color = parseBrandHex(profile.brandColor);
     setUseBrandColor(Boolean(color));
     setBrandColor(color ?? DEFAULT_BRAND_COLOR);
@@ -47,8 +63,10 @@ export function CafeProfileContainer() {
   }, [profileQuery.data, ready]);
 
   async function handleSave() {
+    if (uploading) return;
     setError(null);
     setSaved(null);
+    setJustSaved(false);
     const trimmedName = name.trim();
     if (trimmedName.length === 0) {
       setError('Informe o nome do café.');
@@ -75,15 +93,20 @@ export function CafeProfileContainer() {
     }
 
     const trimmedLogo = logo.trim();
-    if (trimmedLogo.length > 0) {
+    const trimmedBanner = bannerUrl.trim();
+    for (const [value, label] of [
+      [trimmedLogo, 'A logo'],
+      [trimmedBanner, 'O banner'],
+    ] as const) {
+      if (value.length === 0) continue;
       try {
-        const url = new URL(trimmedLogo);
+        const url = new URL(value);
         if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-          setError('A logo precisa ser um endereço http ou https.');
+          setError(`${label} precisa ser um endereço http ou https.`);
           return;
         }
       } catch {
-        setError('A logo precisa ser uma URL válida.');
+        setError(`${label} precisa ser uma URL válida.`);
         return;
       }
     }
@@ -101,14 +124,20 @@ export function CafeProfileContainer() {
         phone: phone.trim() || null,
         addressLine: addressLine.trim() || null,
         logo: trimmedLogo || null,
+        bannerUrl: trimmedBanner || null,
         brandColor: nextColor,
       });
       setSlug(updated.slug);
-      setSaved(
-        slugChanged
-          ? `Endereço alterado. Loja: /loja/${updated.slug}. Avise a equipe: o login agora é usuario@${updated.slug}.`
-          : 'Dados do café salvos.',
-      );
+      if (slugChanged) {
+        // Stay on the page: the alert carries the new team login.
+        setJustSaved(true);
+        setSaved(
+          `Endereço alterado. Loja: /loja/${updated.slug}. Avise a equipe: o login agora é usuario@${updated.slug}.`,
+        );
+        return;
+      }
+      toast.success('Dados do café salvos.');
+      router.push('/configuracoes');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível salvar os dados do café.');
     }
@@ -174,15 +203,25 @@ export function CafeProfileContainer() {
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="cafe-logo">Logo (URL)</Label>
-        <Input
-          id="cafe-logo"
-          onChange={(event) => setLogo(event.target.value)}
-          placeholder="https://"
-          value={logo}
-        />
-      </div>
+      <ImageUploadField
+        hint="Quadrada, PNG com fundo transparente de preferência, mínimo 256×256 px."
+        id="cafe-logo"
+        kind="logo"
+        label="Logo"
+        onChange={(image) => setLogo(image.url)}
+        onUploadingChange={setUploadingLogo}
+        value={logo}
+      />
+
+      <ImageUploadField
+        hint="Foto de capa no topo da loja. Horizontal (16:9), mínimo 1280×720 px."
+        id="cafe-banner"
+        kind="banner"
+        label="Banner da loja"
+        onChange={(image) => setBannerUrl(image.url)}
+        onUploadingChange={setUploadingBanner}
+        value={bannerUrl}
+      />
 
       <div className="flex flex-col gap-3 rounded-md border bg-background p-3">
         <div className="flex items-center justify-between gap-4">
@@ -217,15 +256,28 @@ export function CafeProfileContainer() {
         </div>
       </div>
 
-      <div>
-        <Button disabled={updateProfile.isPending} type="submit">
+      <div className="flex items-center gap-3">
+        <Button disabled={updateProfile.isPending || uploading} type="submit">
           {updateProfile.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Salvando…
+            </>
+          ) : justSaved ? (
+            <>
+              <Check className="h-4 w-4" />
+              Salvo
+            </>
           ) : (
-            <Save className="h-4 w-4" />
+            <>
+              <Save className="h-4 w-4" />
+              Salvar
+            </>
           )}
-          Salvar
         </Button>
+        {uploading ? (
+          <p className="text-xs text-muted-foreground">Aguarde o envio da imagem terminar.</p>
+        ) : null}
       </div>
     </form>
   );

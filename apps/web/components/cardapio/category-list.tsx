@@ -181,7 +181,14 @@ function SortableCategoryItem({
         onClick={() => onSelect(category.id)}
         type="button"
       >
-        <span className="truncate">{category.name}</span>
+        <span className="min-w-0 truncate">
+          {category.name}
+          {(category.galleryImages?.length ?? 0) > 0 ? (
+            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+              · {category.galleryImages.length} foto{category.galleryImages.length === 1 ? '' : 's'}
+            </span>
+          ) : null}
+        </span>
         <Badge variant={selected ? 'default' : 'muted'}>{productCount}</Badge>
       </button>
 

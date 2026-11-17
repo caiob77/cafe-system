@@ -9,25 +9,19 @@ import {
 } from './handlers.js';
 
 export const cashRegisterRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/current', { preHandler: app.requireAuth }, getCurrentCashRegisterHandler);
+  const roles = ['owner', 'manager'] as const;
 
-  app.post(
-    '/open',
-    { preHandler: app.requireRole(['owner', 'manager', 'attendant']) },
-    openCashRegisterHandler,
-  );
+  app.get('/current', { preHandler: app.requireRole([...roles]) }, getCurrentCashRegisterHandler);
 
-  app.post(
-    '/close',
-    { preHandler: app.requireRole(['owner', 'manager', 'attendant']) },
-    closeCashRegisterHandler,
-  );
+  app.post('/open', { preHandler: app.requireRole([...roles]) }, openCashRegisterHandler);
 
-  app.get('/:id', { preHandler: app.requireAuth }, getCashRegisterHandler);
+  app.post('/close', { preHandler: app.requireRole([...roles]) }, closeCashRegisterHandler);
+
+  app.get('/:id', { preHandler: app.requireRole([...roles]) }, getCashRegisterHandler);
 
   app.post(
     '/:id/movements',
-    { preHandler: app.requireRole(['owner', 'manager', 'attendant']) },
+    { preHandler: app.requireRole([...roles]) },
     createCashMovementHandler,
   );
 };

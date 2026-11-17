@@ -3,86 +3,113 @@
 Duas partes:
 
 1. [Checklist antes de produção](#1-checklist-antes-de-produção): o que precisa
+
    estar resolvido antes de abrir para clientes.
 2. [Passo a passo do deploy](#2-passo-a-passo-do-deploy): comandos na ordem certa,
+
    do servidor vazio até o primeiro pedido.
 
 ---
 
 ## 1. Checklist antes de produção
 
-Legenda: 🔴 bloqueia o lançamento · 🟡 importante, pode entrar logo depois · 🟢 recomendado
+Legenda: 🔴 bloqueia o lançamento · 🟡 importante, pode entrar logo depois · 🟢 recomendado · ⏸️ adiado
 
 ### Conteúdo e fotos
 
-- [ ] 🔴 **Enviar as fotos dos produtos.** O catálogo inicial do seed tem 72
-      produtos e **nenhum tem foto**. Sem foto, a loja mostra só nome e preço.
+- [x] 🔴 **Enviar as fotos dos produtos.** O catálogo inicial do seed tem 72
+  ```
+  produtos e **nenhum tem foto**. Sem foto, a loja mostra só nome e preço.
+  ```
   - Formato sugerido: JPG ou WebP, quadrada (1:1), 800×800 px, até 300 KB.
   - Nome do arquivo igual ao nome do produto (ex.: `pao-na-chapa.jpg`), para
-    facilitar o cadastro.
+  facilitar o cadastro.
   - Lista de produtos: categorias e itens definidos em `packages/db/prisma/seed.ts`.
-- [ ] 🔴 **Enviar a logo do café** (PNG com fundo transparente ou quadrada, mínimo
-      256×256 px).
-- [ ] 🔴 **Criar o campo para essas fotos na página de delivery público.** Hoje:
-  - a loja (`/loja/[slug]`) **exibe** a foto do produto e a logo quando existe
-    uma URL cadastrada;
-  - o painel só aceita **URL** da imagem (Cardápio → produto → "URL da imagem" e
-    Configurações → Café → "Logo (URL)"), não existe **upload** de arquivo;
-  - as variáveis `CLOUDINARY_*` existem no `.env.production`, mas a API **não
-    tem** integração de upload;
-  - não existe campo de **foto de capa/banner** da loja.
-  - Decisão pendente: onde hospedar as imagens (Cloudinary, S3/R2 ou pasta servida
-    pelo nginx).
-- [ ] 🟡 Revisar preços, descrições e disponibilidade de todos os produtos.
-- [ ] 🟡 Definir a cor da marca (Configurações → Café).
-- [ ] 🟡 Cadastrar bairros atendidos, taxas de entrega e horário de funcionamento.
+- [x] 🔴 **Enviar a logo do café** (PNG com fundo transparente ou quadrada, mínimo
+  ```
+  256×256 px).
+  ```
+- [x] 🔴 **Criar o campo para essas fotos na página de delivery público.**
+  ```
+  Resolvido com Cloudinary:
+  ```
+  - upload de arquivo em Cardápio → produto → "Foto", Configurações → Café →
+  "Logo" e "Banner da loja", e no assistente de configuração inicial;
+  - a API (`POST /api/v1/uploads/signature`, owner/manager) só assina o upload; o
+  navegador envia direto ao Cloudinary, na pasta `cafe/<slug>/<tipo>`
+  (`asset_folder` + `public_id_prefix` — contas novas usam dynamic folders);
+  - o Cloudinary reduz a imagem ao gravar (produto 1200 px, logo 512 px, banner
+  1920 px) e a loja pede miniaturas em WebP/AVIF (`f_auto,q_auto`);
+  - novo campo `bannerUrl` (migration `20261029160000_add_banner_url`).
+- [x] 🔴 **Criar a conta no Cloudinary** e preencher `CLOUDINARY_CLOUD_NAME`,
+  ```
+  `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET` no `.env.production`. Sem
+  elas o botão de upload responde "Upload de imagens não configurado" (colar
+  URL continua funcionando).
+  ```
+- [x] 🟡 Revisar preços, descrições e disponibilidade de todos os produtos.
+- [x] 🟡 Definir a cor da marca (Configurações → Café).
+- [x] 🟡 Cadastrar bairros atendidos, taxas de entrega e horário de funcionamento.
 
 ### Bloqueios técnicos encontrados no código
 
-- [ ] 🔴 **WebSocket do print-agent não passa pelo nginx.** O print-agent conecta em
-      `wss://DOMINIO/api/v1/realtime`, mas no
-      `nginx/conf.d/default.conf.template` os headers `Upgrade`/`Connection` só
-      existem na rota `/ws`. A rota `/api/` não os repassa, então o handshake
-      falha. Correção: adicionar um `location /api/v1/realtime` com os mesmos
-      headers do bloco `/ws` (antes do `location /api/`).
-- [ ] 🔴 **Impressão física.** O print-agent hoje **simula** a impressão no console.
-      Confirmar se a impressora térmica real já está implementada e testada antes
-      de depender dela na cozinha.
+- [x] 🔴 **WebSocket do print-agent não passa pelo nginx.** Resolvido:
+  ```
+  `nginx/conf.d/default.conf.template` tem um `location /api/v1/realtime`
+  com `Upgrade`/`Connection` e `proxy_read_timeout 24h`.
+  ```
+- [ ] ⏸️ **Impressão física.** Adiada: o lançamento sai sem impressora, com a
+  ```
+  cozinha acompanhando pela tela de pedidos. Ver
+  [Pendências depois do lançamento](#pendências-depois-do-lançamento).
+  ```
 - [ ] 🔴 **Ligar o RLS em produção** (passo 11). Sem isso, o isolamento entre
-      estabelecimentos depende só da aplicação.
-- [ ] 🟡 **Seed em produção não recebe as variáveis `SEED_*`.** O
-      `docker-compose.prod.yml` só repassa ao container `api` as variáveis
-      listadas em `environment`. O passo 10 mostra como passá-las com `-e`.
-- [ ] 🟡 **Backup automático do Postgres.** O volume `/backups` existe, mas não há
-      rotina de `pg_dump` (passo 14).
-- [ ] 🟢 **`docs/` está no `.gitignore`.** Este arquivo, o `desenvolvimento.md` e o
-      `rls.md` não vão para o repositório, e os links do README ficam quebrados
-      para quem clonar.
+  ```
+  estabelecimentos depende só da aplicação.
+  ```
+- [x] 🟡 **Seed em produção não recebe as variáveis** `SEED_`***.** Resolvido no
+  ```
+  passo 10: as variáveis entram no container com `dc exec -e`.
+  ```
+- [x] 🟡 **Backup automático do Postgres.** Resolvido: `scripts/backup-db.sh`
+  ```
+  (passo 14).
+  ```
+- [x] 🟢 `docs/` **está no** `.gitignore`**.** Resolvido: o `.gitignore` tem exceções
+  ```
+  para `producao.md`, `desenvolvimento.md` e `rls.md`.
+  ```
 
 ### Infraestrutura e contas
 
 - [ ] 🔴 VPS com Docker e Docker Compose, mínimo sugerido de 2 GB de RAM (o build
-      do Next.js consome memória).
+  ```
+  do Next.js consome memória).
+  ```
 - [ ] 🔴 Domínio registrado com um registro DNS `A` apontando para o IP da VPS.
 - [ ] 🔴 Portas 80 e 443 abertas no firewall da VPS.
 - [ ] 🔴 E-mail para o Let's Encrypt (avisos de expiração do certificado).
-- [ ] 🟡 Conta no serviço de imagens escolhido (ex.: Cloudinary).
 - [ ] 🟡 Computador fixo no café para rodar o print-agent, ligado à impressora.
 
 ### Segurança
 
-- [ ] 🔴 Todas as senhas e segredos gerados com valores fortes e únicos (passo 4).
-- [ ] 🔴 `.env.production` **fora do git** (já está no `.gitignore`) e guardado em
-      local seguro (gerenciador de senhas).
-- [ ] 🔴 `SUPER_ADMIN_EMAILS` preenchido só com o seu e-mail.
+- [x] 🔴 Todas as senhas e segredos gerados com valores fortes e únicos (passo 4).
+  As chaves do Cloudinary do `.env` local foram copiadas para o
+  `.env.production`.
+- [x] 🔴 `.env.production` **fora do git** (já está no `.gitignore` e o git não
+  rastreia o arquivo). Copie o arquivo para um gerenciador de senhas antes do
+  deploy: ele não está em nenhum backup do repositório.
+- [x] 🔴 `SUPER_ADMIN_EMAILS` preenchido só com o seu e-mail.
 - [ ] 🔴 `SEED_CONFIRM_RESET` removido ou `false` depois do primeiro seed (o seed
-      **apaga todos os dados**).
+  ```
+  **apaga todos os dados**).
+  ```
 
 ### Validação final
 
 - [ ] 🔴 Login do dono funcionando em `https://DOMINIO/login`.
 - [ ] 🔴 Pedido de teste completo pela loja: celular, fora do Wi-Fi do café.
-- [ ] 🔴 Pedido aparecendo no painel e ticket saindo na impressora da cozinha.
+- [ ] 🔴 Pedido aparecendo no painel e na tela da cozinha (impressora adiada).
 - [ ] 🔴 Abrir caixa, registrar pagamento e fechar caixa.
 - [ ] 🟡 Testar pedido fora do horário e em bairro não atendido (deve bloquear).
 
@@ -169,6 +196,11 @@ NEXT_PUBLIC_API_URL=https://DOMINIO
 
 SUPER_ADMIN_EMAILS=voce@email.com
 PRO_PLAN_PRICE=99
+
+# Painel do Cloudinary → Settings → API Keys
+CLOUDINARY_CLOUD_NAME=<cloud-name>
+CLOUDINARY_API_KEY=<api-key>
+CLOUDINARY_API_SECRET=<api-secret>
 ```
 
 A senha dentro de `DATABASE_ADMIN_URL` precisa ser **igual** a `ADMIN_DB_PASSWORD`.
@@ -266,10 +298,11 @@ depois (o banco guarda só o hash).
 Em seguida, **remova** `SEED_CONFIRM_RESET=true` e `SEED_OWNER_PASSWORD` do
 `.env.production`.
 
-> Não testado dentro do container: o script `db:seed` usa `dotenv -e ../../.env`,
-> e esse arquivo não existe na imagem. Se o seed falhar por falta de variável,
-> rode `dc exec ... api sh -c 'cd /app/packages/db && npx tsx prisma/seed.ts'`
-> com os mesmos `-e`.
+> O script `db:seed` usa `dotenv -e ../../.env`, que não existe na imagem. O
+> `dotenv-cli` ignora arquivo ausente e não sobrescreve variáveis já definidas,
+> então os `-e` acima chegam ao seed. Se mesmo assim faltar variável, rode
+> `dc exec ... api sh -c 'cd /app/packages/db && npx tsx prisma/seed.ts'` com os
+> mesmos `-e`.
 
 ### Passo 11 — Ligar o RLS
 
@@ -335,19 +368,31 @@ o computador, configure como serviço (systemd no Linux ou NSSM no Windows).
 
 ### Passo 14 — Backup diário do banco
 
-Na VPS, `crontab -e`:
+Teste uma vez na mão:
 
-```cron
-0 3 * * * docker exec cafe-postgres-prod sh -c 'pg_dump -U cafe -d cafe -Fc > /backups/cafe-$(date +\%F).dump && find /backups -name "*.dump" -mtime +14 -delete'
+```bash
+./scripts/backup-db.sh
+# [backup] ok: cafe-AAAA-MM-DD-HHMM.dump
 ```
 
-Mantém 14 dias de backup. O volume fica na própria VPS: copie os arquivos para
-fora (outro servidor, S3, Google Drive) para sobreviver a uma perda da máquina.
+Depois agende na VPS com `crontab -e` (ajuste o caminho do projeto):
+
+```cron
+0 3 * * * cd /home/USUARIO/cafe-system && ./scripts/backup-db.sh >> /var/log/cafe-backup.log 2>&1
+```
+
+O script lê `POSTGRES_USER`/`POSTGRES_DB` do `.env.production`, confere o dump
+com `pg_restore --list` e mantém 14 dias (`BACKUP_RETENTION_DAYS`). O volume fica
+na própria VPS: defina `BACKUP_COPY_DIR` (pasta montada de outro disco, rclone
+etc.) para ter uma cópia fora da máquina.
 
 Restaurar:
 
 ```bash
-docker exec -i cafe-postgres-prod pg_restore -U cafe -d cafe --clean < cafe-AAAA-MM-DD.dump
+# dump dentro do volume /backups
+docker exec cafe-postgres-prod pg_restore -U cafe -d cafe --clean /backups/cafe-AAAA-MM-DD-HHMM.dump
+# dump copiado para o host
+docker exec -i cafe-postgres-prod pg_restore -U cafe -d cafe --clean < cafe-AAAA-MM-DD-HHMM.dump
 ```
 
 ### Passo 15 — Finalizar o conteúdo
@@ -356,6 +401,40 @@ docker exec -i cafe-postgres-prod pg_restore -U cafe -d cafe --clean < cafe-AAAA
 2. Revisar cardápio, preços, bairros, taxas e horários pelo painel.
 3. Cadastrar a equipe em Configurações.
 4. Divulgar o link `https://DOMINIO/loja/cafe-beniel`.
+
+---
+
+## Pendências depois do lançamento
+
+Problemas conhecidos que não bloqueiam a abertura, mas precisam ser resolvidos
+com a loja rodando.
+
+- [ ] 🟡 **Imagens antigas não são apagadas do Cloudinary.** Ao trocar ou remover
+  ```
+  a foto de um produto, a logo ou o banner, o arquivo anterior continua na
+  conta. Para um café cabe no plano grátis; com vários cafés, ocupa espaço.
+  Correção: ao salvar, a API chama o `destroy` do Cloudinary com o
+  `imagePublicId` antigo (produto já guarda; logo e banner precisam de colunas
+  `logoPublicId`/`bannerPublicId`). Alternativa: rotina mensal que lista a
+  pasta `cafe/<slug>/` e apaga o que não está referenciado no banco.
+  ```
+- [ ] 🟢 **Limite de 5 MB só no navegador.** O upload vai direto do navegador ao
+  ```
+  Cloudinary; quem chamar a API de assinatura na mão pode enviar arquivos
+  maiores, até o limite do plano do Cloudinary. Mitigação atual: só
+  owner/manager assinam e o Cloudinary reduz a imagem ao gravar. Correção
+  definitiva: fazer o upload passar pela API (`@fastify/multipart` com limite
+  de 5 MB, checagem do tipo real do arquivo e `client_max_body_size` no nginx).
+  ```
+- [ ] 🟡 **Upload sem limite de quantidade.** Owner e manager podem gerar quantas
+  ```
+  assinaturas quiserem. Baixo risco (exige login), mas vale um rate limit por
+  organização no `POST /api/v1/uploads/signature`.
+  ```
+- [ ] 🟡 **Impressão física.** O print-agent continua simulando no console.
+  ```
+  Depende do modelo e da conexão (USB/rede) da impressora.
+  ```
 
 ---
 

@@ -1,7 +1,13 @@
+export type PublicStoreGalleryImage = {
+  url: string;
+  publicId: string | null;
+};
+
 export type PublicStoreCategory = {
   id: string;
   name: string;
   sortOrder: number;
+  galleryImages: PublicStoreGalleryImage[];
 };
 
 export type PublicStoreAddon = {
@@ -26,6 +32,7 @@ export type PublicStoreMenu = {
     name: string;
     slug: string;
     logo: string | null;
+    bannerUrl: string | null;
     addressLine: string | null;
     phone: string | null;
     brandColor: string | null;

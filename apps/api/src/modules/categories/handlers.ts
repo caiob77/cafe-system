@@ -1,4 +1,5 @@
 import { Prisma } from '@cafe/db';
+import { parseCategoryGalleryImages } from '@cafe/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import {
@@ -24,15 +25,22 @@ function tenantIdOrReply(request: FastifyRequest, reply: FastifyReply) {
 
 function serializeCategory(category: {
   id: string;
+  organizationId: string;
   name: string;
   sortOrder: number;
+  galleryImages: Prisma.JsonValue;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
 }) {
   return {
-    ...category,
+    id: category.id,
+    organizationId: category.organizationId,
+    name: category.name,
+    sortOrder: category.sortOrder,
+    galleryImages: parseCategoryGalleryImages(category.galleryImages),
+    active: category.active,
     createdAt: category.createdAt.toISOString(),
     updatedAt: category.updatedAt.toISOString(),
     deletedAt: category.deletedAt?.toISOString() ?? null,
@@ -84,6 +92,7 @@ export async function createCategoryHandler(request: FastifyRequest, reply: Fast
         organizationId: tenantId,
         name: body.name,
         sortOrder: body.sortOrder ?? (maxSort._max.sortOrder ?? -1) + 1,
+        galleryImages: body.galleryImages ?? [],
       },
     });
 
@@ -132,6 +141,7 @@ export async function updateCategoryHandler(request: FastifyRequest, reply: Fast
         ...(body.name === undefined ? {} : { name: body.name }),
         ...(body.sortOrder === undefined ? {} : { sortOrder: body.sortOrder }),
         ...(body.active === undefined ? {} : { active: body.active }),
+        ...(body.galleryImages === undefined ? {} : { galleryImages: body.galleryImages }),
       },
     });
 

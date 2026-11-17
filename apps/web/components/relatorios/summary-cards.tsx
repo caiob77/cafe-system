@@ -53,12 +53,19 @@ export function SummaryCards({ data, loading }: SummaryCardsProps) {
       {cards.map((card) => {
         const Icon = card.icon;
         return (
-          <div className="flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-sm" key={card.label}>
+          <div
+            className="flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-sm"
+            key={card.label}
+          >
             <div className="flex items-center gap-2">
               <Icon className={cn('h-4 w-4', card.tone)} />
               <span className="text-xs text-muted-foreground">{card.label}</span>
             </div>
-            {loading ? <Skeleton className="h-7 w-20" /> : <span className="text-xl font-semibold">{card.value}</span>}
+            {loading ? (
+              <Skeleton className="h-7 w-20" />
+            ) : (
+              <span className="text-xl font-semibold">{card.value}</span>
+            )}
           </div>
         );
       })}

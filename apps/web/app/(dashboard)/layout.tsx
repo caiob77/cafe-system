@@ -19,9 +19,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <SessionUIProvider session={session.data}>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen overflow-x-clip bg-background">
         <Sidebar role={session.data.role} />
-        <div className="flex min-h-screen flex-1 flex-col">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-6">
             <div>
               <p className="text-sm font-medium">{session.data.user.name}</p>

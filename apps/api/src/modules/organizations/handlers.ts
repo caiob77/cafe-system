@@ -40,6 +40,7 @@ function serializeOrganization(org: {
   name: string;
   slug: string;
   logo: string | null;
+  bannerUrl: string | null;
   addressLine: string | null;
   phone: string | null;
   brandColor: string | null;
@@ -56,6 +57,7 @@ function serializeOrganization(org: {
     name: org.name,
     slug: org.slug,
     logo: org.logo,
+    bannerUrl: org.bannerUrl,
     addressLine: org.addressLine,
     phone: org.phone,
     brandColor: org.brandColor,
@@ -75,6 +77,7 @@ const ORG_SELECT = {
   name: true,
   slug: true,
   logo: true,
+  bannerUrl: true,
   addressLine: true,
   phone: true,
   brandColor: true,
@@ -113,6 +116,7 @@ export async function updateProfileHandler(request: FastifyRequest, reply: Fasti
 
   if (body.name !== undefined) data.name = body.name;
   if (body.logo !== undefined) data.logo = body.logo;
+  if (body.bannerUrl !== undefined) data.bannerUrl = body.bannerUrl;
   if (body.addressLine !== undefined) data.addressLine = body.addressLine;
   if (body.phone !== undefined) data.phone = body.phone;
   if (body.brandColor !== undefined) data.brandColor = body.brandColor;

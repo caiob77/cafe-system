@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowDown, ArrowUp, Banknote, Coins, CreditCard, Smartphone } from 'lucide-react';
+import { ArrowDown, ArrowUp, type Banknote, Coins, CreditCard, Smartphone } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -26,14 +26,18 @@ export function CashRegisterSummaryCard({ register }: CashRegisterSummaryProps) 
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
       <div className="rounded-lg border bg-card p-4 shadow-sm">
         <p className="text-xs text-muted-foreground">Aberto em</p>
-        <p className="mt-1 text-sm font-medium">{dateFormatter.format(new Date(register.openedAt))}</p>
+        <p className="mt-1 text-sm font-medium">
+          {dateFormatter.format(new Date(register.openedAt))}
+        </p>
         <p className="mt-3 text-xs text-muted-foreground">Valor inicial</p>
         <p className="text-lg font-semibold">{formatPrice(register.initialAmount)}</p>
       </div>
 
       <div className="rounded-lg border bg-card p-4 shadow-sm">
         <p className="text-xs text-muted-foreground">Esperado em caixa físico</p>
-        <p className="text-lg font-semibold">{formatPrice(flow?.expected ?? register.initialAmount)}</p>
+        <p className="text-lg font-semibold">
+          {formatPrice(flow?.expected ?? register.initialAmount)}
+        </p>
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <ArrowUp className="h-3 w-3 text-emerald-500" />
@@ -75,7 +79,10 @@ function PaymentBreakdown({ payments }: { payments: CashRegisterSummary['payment
         {rows.map((row) => {
           const Icon = row.icon;
           return (
-            <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-3" key={row.label}>
+            <div
+              className="flex items-center gap-3 rounded-md border bg-muted/30 p-3"
+              key={row.label}
+            >
               <Icon className={cn('h-5 w-5', row.className)} />
               <div className="flex flex-col">
                 <span className="text-xs text-muted-foreground">{row.label}</span>

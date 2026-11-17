@@ -24,7 +24,7 @@ import {
   useUpdateProduct,
   useUpdateProductAvailability,
 } from '@/features/cardapio/api/use-products';
-import type { Category, Product } from '@/features/cardapio/types';
+import type { Category, CategoryInput, Product } from '@/features/cardapio/types';
 
 const MANAGE_ROLES = new Set(['owner', 'manager']);
 
@@ -120,7 +120,7 @@ export function MenuContainer() {
     setCategoryDialog({ open: true, target: category });
   }
 
-  async function handleCategorySubmit(input: { name: string }) {
+  async function handleCategorySubmit(input: CategoryInput) {
     setCategoryError(null);
     try {
       if (categoryDialog.target) {

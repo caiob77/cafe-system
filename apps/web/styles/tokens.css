@@ -5,28 +5,32 @@
 */
 
 [data-theme="store"] {
-  --background: 45 20% 96%;
-  --foreground: 24 22% 9%;
-  --card: 0 0% 100%;
-  --card-foreground: 24 22% 9%;
-  --primary: 17 47% 12%;
-  --primary-foreground: 38 41% 95%;
-  --secondary: 36 24% 88%;
-  --secondary-foreground: 24 22% 9%;
-  --muted: 40 24% 93%;
-  --muted-foreground: 26 10% 33%;
-  --accent: 17 47% 12%;
-  --accent-foreground: 38 41% 95%;
+  --background: 42 14% 94%;
+  --foreground: 24 28% 8%;
+  --card: 40 20% 98%;
+  --card-foreground: 24 28% 8%;
+  --primary: 22 42% 11%;
+  --primary-foreground: 40 30% 96%;
+  --secondary: 38 12% 88%;
+  --secondary-foreground: 24 28% 8%;
+  --muted: 40 12% 90%;
+  --muted-foreground: 28 8% 36%;
+  --accent: 22 42% 11%;
+  --accent-foreground: 40 30% 96%;
   --destructive: 0 69% 37%;
   --destructive-foreground: 0 0% 100%;
-  --border: 31 9% 52%;
-  --input: 31 9% 52%;
-  --ring: 17 47% 12%;
-  --radius: 0.5rem;
-  --line: 35 18% 87%;
+  --border: 30 8% 48%;
+  --input: 30 8% 48%;
+  --ring: 22 42% 11%;
+  --radius: 0.25rem;
+  --line: 36 10% 84%;
+  --wash: 38 18% 88%;
   --font-sans: var(--font-store-sans), "Source Sans 3", sans-serif;
   --font-display: var(--font-store-display), Georgia, "Times New Roman", serif;
-  background: hsl(var(--background));
+  background:
+    radial-gradient(120% 70% at 8% -10%, hsl(38 22% 90% / 0.9), transparent 55%),
+    radial-gradient(90% 50% at 100% 0%, hsl(28 16% 88% / 0.55), transparent 45%),
+    hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-sans), sans-serif;
   font-size: 1rem;
@@ -47,6 +51,10 @@
   animation: store-fade 160ms ease-out;
 }
 
+[data-theme="store"] .store-reveal {
+  animation: store-reveal 280ms ease-out;
+}
+
 @keyframes store-fade {
   from {
     opacity: 0;
@@ -57,8 +65,21 @@
   }
 }
 
+@keyframes store-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  [data-theme="store"] .store-sheet {
+  [data-theme="store"] .store-sheet,
+  [data-theme="store"] .store-reveal {
     animation: none;
   }
 }

@@ -30,9 +30,7 @@ export function PaymentsBreakdown({ data }: { data?: PaymentsReport }) {
               <div className="flex flex-col">
                 <span className="text-xs text-muted-foreground">{method.label}</span>
                 <span className="text-sm font-semibold">{formatPrice(entry.amount)}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {entry.count} transações
-                </span>
+                <span className="text-[10px] text-muted-foreground">{entry.count} transações</span>
               </div>
             </div>
           );
@@ -40,7 +38,9 @@ export function PaymentsBreakdown({ data }: { data?: PaymentsReport }) {
       </div>
       <div className="flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
         <span>Total no período</span>
-        <span className="text-sm font-semibold text-foreground">{formatPrice(data.totals.amount)}</span>
+        <span className="text-sm font-semibold text-foreground">
+          {formatPrice(data.totals.amount)}
+        </span>
       </div>
     </div>
   );

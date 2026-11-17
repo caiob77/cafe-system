@@ -7,7 +7,7 @@ const accessByPrefix: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: '/configuracoes', roles: ['owner', 'manager'] },
   { prefix: '/relatorios', roles: ['owner', 'manager'] },
   { prefix: '/cardapio', roles: ['owner', 'manager', 'attendant'] },
-  { prefix: '/caixa', roles: ['owner', 'manager', 'attendant'] },
+  { prefix: '/caixa', roles: ['owner', 'manager'] },
   { prefix: '/delivery', roles: ['owner', 'manager', 'attendant'] },
   { prefix: '/mesas', roles: ['owner', 'manager', 'attendant'] },
   { prefix: '/pedidos', roles: ['owner', 'manager', 'attendant'] },

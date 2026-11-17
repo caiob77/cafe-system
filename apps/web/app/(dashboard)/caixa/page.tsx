@@ -1,6 +1,15 @@
-import { CashRegisterContainer } from '@/features/caixa/containers/cash-register-container';
+import { redirect } from 'next/navigation';
 
-export default function CashRegisterPage() {
+import { canAccessRoute } from '@/features/auth/utils/can-access-route';
+import { CashRegisterContainer } from '@/features/caixa/containers/cash-register-container';
+import { getCurrentUser } from '@/lib/server-api';
+
+export default async function CashRegisterPage() {
+  const session = await getCurrentUser();
+  if (!session || !canAccessRoute('/caixa', session.data.role)) {
+    redirect('/pedidos');
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <header>

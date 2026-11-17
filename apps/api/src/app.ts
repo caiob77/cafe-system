@@ -25,6 +25,7 @@ import { productRoutes } from './modules/products/routes.js';
 import { publicRoutes } from './modules/public/routes.js';
 import { reportRoutes } from './modules/reports/routes.js';
 import { tableRoutes } from './modules/tables/routes.js';
+import { uploadRoutes } from './modules/uploads/routes.js';
 import { authPlugin } from './plugins/auth.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { planLimitsPlugin } from './plugins/plan-limits.js';
@@ -91,6 +92,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(printJobRoutes, { prefix: '/api/v1/print-jobs' });
   await app.register(printerDeviceRoutes, { prefix: '/api/v1/printer-devices' });
   await app.register(reportRoutes, { prefix: '/api/v1/reports' });
+  await app.register(uploadRoutes, { prefix: '/api/v1/uploads' });
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
   await app.register(publicRoutes, { prefix: '/api/v1/public' });
 

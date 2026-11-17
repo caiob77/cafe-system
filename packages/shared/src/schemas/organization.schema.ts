@@ -32,7 +32,10 @@ export const organizationSlugSchema = z
 export const updateOrganizationProfileSchema = z
   .object({
     slug: organizationSlugSchema.optional(),
-    logo: z.union([z.string().url('Logo deve ser uma URL válida'), z.null()]).optional(),
+    logo: z.union([z.string().max(2048).url('Logo deve ser uma URL válida'), z.null()]).optional(),
+    bannerUrl: z
+      .union([z.string().max(2048).url('Banner deve ser uma URL válida'), z.null()])
+      .optional(),
     name: trimmed(120, 'Nome muito longo').optional(),
     addressLine: z.union([trimmed(200, 'Endereço muito longo'), z.null()]).optional(),
     phone: z.union([trimmed(40, 'Telefone muito longo'), z.null()]).optional(),

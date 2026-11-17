@@ -1,8 +1,14 @@
+export type CategoryGalleryImage = {
+  url: string;
+  publicId: string | null;
+};
+
 export type Category = {
   id: string;
   organizationId: string;
   name: string;
   sortOrder: number;
+  galleryImages: CategoryGalleryImage[];
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +49,7 @@ export type CategoryInput = {
   name: string;
   sortOrder?: number;
   active?: boolean;
+  galleryImages?: CategoryGalleryImage[];
 };
 
 export type ProductInput = {

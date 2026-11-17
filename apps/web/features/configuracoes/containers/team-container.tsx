@@ -78,7 +78,7 @@ export function TeamContainer() {
       setUsername('');
       setPassword('');
       setNotice(
-        `${created.user.name} cadastrado. Login: ${created.login}. Passe a senha para ele.`,
+        `${created.user.name} cadastrado. Login: ${created.login}. Passe a senha para ele(a).`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível cadastrar o membro.');
@@ -292,7 +292,7 @@ export function TeamContainer() {
           setEditingAccess(null);
           setNotice(
             input.password
-              ? `Acesso de ${editingAccess.user.name} atualizado. Login: ${updated.login}. Passe a nova senha para ele.`
+              ? `Acesso de ${editingAccess.user.name} atualizado. Login: ${updated.login}. Passe a nova senha para ele(a).`
               : `Login de ${editingAccess.user.name} atualizado para ${updated.login}.`,
           );
         }}

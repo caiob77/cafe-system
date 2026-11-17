@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, Copy, Loader2, Plus, Trash2 } from 'lucid
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { ImageUploadField } from '@/components/image-upload-field';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -310,36 +311,18 @@ export function SetupWizard({ initial }: { initial: WizardInitial }) {
           <CardHeader>
             <h2 className="text-lg font-medium">Logo</h2>
             <p className="text-sm text-muted-foreground">
-              Cole a URL pública da imagem do seu café. Pode pular e configurar depois.
+              Envie a logo do seu café. Pode pular e configurar depois.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="logo">URL do logo</Label>
-              <Input
-                id="logo"
-                onChange={(event) => setLogo(event.target.value)}
-                placeholder="https://..."
-                type="url"
-                value={logo}
-              />
-            </div>
-            {logo.trim().length > 0 ? (
-              <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  alt="Pré-visualização do logo"
-                  className="h-16 w-16 rounded-md object-cover"
-                  onError={(event) => {
-                    (event.currentTarget as HTMLImageElement).style.display = 'none';
-                  }}
-                  src={logo.trim()}
-                />
-                <div className="text-xs text-muted-foreground">
-                  Pré-visualização. Se nada aparecer, verifique a URL.
-                </div>
-              </div>
-            ) : null}
+            <ImageUploadField
+              hint="Quadrada, PNG com fundo transparente de preferência, mínimo 256×256 px."
+              id="logo"
+              kind="logo"
+              label="Logo"
+              onChange={(image) => setLogo(image.url)}
+              value={logo}
+            />
           </CardContent>
         </Card>
       ) : null}

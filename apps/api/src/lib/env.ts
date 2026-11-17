@@ -20,6 +20,9 @@ const EnvSchema = z.object({
         .filter((email) => email.length > 0),
     ),
   PRO_PLAN_PRICE: z.coerce.number().nonnegative().default(99),
+  CLOUDINARY_CLOUD_NAME: z.string().trim().optional(),
+  CLOUDINARY_API_KEY: z.string().trim().optional(),
+  CLOUDINARY_API_SECRET: z.string().trim().optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
