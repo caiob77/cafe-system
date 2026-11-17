@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { OrdersKanbanCard } from '@/components/pedidos/orders-kanban-card';
+import { SettleOrderDialog } from '@/components/pedidos/settle-order-dialog';
 import { ApiError } from '@/lib/api-client';
 
 import { useOrders, useUpdateOrderStatus } from '@/features/pedidos/api/use-orders';
 import type { Order, OrderStatus } from '@/features/pedidos/types';
+import { shouldSettleOnAdvance } from '@/features/pedidos/utils/settlement';
 import { orderStatusLabel } from '@/features/pedidos/utils/status';
 
 const KANBAN_COLUMNS: OrderStatus[] = ['pending', 'preparing', 'ready', 'delivered'];
@@ -19,6 +21,7 @@ export function OrdersKanbanContainer() {
   const updateStatus = useUpdateOrderStatus();
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [settlement, setSettlement] = useState<Order | null>(null);
 
   const orders = ordersQuery.data ?? [];
 
@@ -31,6 +34,11 @@ export function OrdersKanbanContainer() {
   }
 
   async function handleAdvance(order: Order, next: OrderStatus) {
+    if (shouldSettleOnAdvance(order.type, next)) {
+      setError(null);
+      setSettlement(order);
+      return;
+    }
     setError(null);
     setPendingOrderId(order.id);
     try {
@@ -113,6 +121,13 @@ export function OrdersKanbanContainer() {
           );
         })}
       </div>
+      <SettleOrderDialog
+        onOpenChange={(open) => {
+          if (!open) setSettlement(null);
+        }}
+        open={settlement !== null}
+        order={settlement}
+      />
     </div>
   );
 }

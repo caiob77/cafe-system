@@ -701,6 +701,23 @@ export async function updateOrderStatusHandler(request: FastifyRequest, reply: F
       );
   }
 
+  if (body.status === 'finished') {
+    const paidAgg = await request.withTenant((db) =>
+      db.payment.aggregate({
+        where: { orderId: order.id, organizationId: tenantId },
+        _sum: { amount: true },
+      }),
+    );
+    const paid = paidAgg._sum.amount ?? new Prisma.Decimal(0);
+    if (paid.lt(order.total)) {
+      return reply
+        .code(409)
+        .send(
+          error('payment_required', 'Selecione o método de pagamento antes de finalizar o pedido'),
+        );
+    }
+  }
+
   const now = new Date();
   const data: Prisma.OrderUpdateInput = {
     status: body.status,

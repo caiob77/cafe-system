@@ -3,6 +3,7 @@
 import { Clock, Loader2, MapPin, Phone, Truck } from 'lucide-react';
 import { useState } from 'react';
 
+import { SettleOrderDialog } from '@/components/pedidos/settle-order-dialog';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
@@ -11,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { formatPrice } from '@/features/cardapio/utils/format-price';
 import { useOrders, useUpdateOrderStatus } from '@/features/pedidos/api/use-orders';
 import type { Order, OrderStatus } from '@/features/pedidos/types';
+import { shouldSettleOnAdvance } from '@/features/pedidos/utils/settlement';
 import {
   getAllowedTransitions,
   orderStatusBadgeStyle,
@@ -27,10 +29,16 @@ export function DeliveryOrdersContainer() {
   const updateStatus = useUpdateOrderStatus();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [settlement, setSettlement] = useState<Order | null>(null);
 
   const orders = (ordersQuery.data ?? []).filter((order) => order.type === 'delivery');
 
   async function handleAdvance(order: Order, next: OrderStatus) {
+    if (shouldSettleOnAdvance(order.type, next)) {
+      setError(null);
+      setSettlement(order);
+      return;
+    }
     setError(null);
     setPendingId(order.id);
     try {
@@ -131,6 +139,13 @@ export function DeliveryOrdersContainer() {
           );
         })}
       </div>
+      <SettleOrderDialog
+        onOpenChange={(open) => {
+          if (!open) setSettlement(null);
+        }}
+        open={settlement !== null}
+        order={settlement}
+      />
     </div>
   );
 }

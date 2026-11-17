@@ -214,6 +214,15 @@ export async function createOrderPaymentHandler(request: FastifyRequest, reply: 
     const remaining = result.order.total.sub(result.paid);
 
     if (result.order.status === 'finished') {
+      request.server.realtime.publish(tenantId, {
+        type: 'order_status_changed',
+        payload: {
+          id: result.order.id,
+          status: result.order.status,
+          version: result.order.version,
+        },
+      });
+
       const receiptJob = await request.withTenant(async (db) => {
         const [fullOrder, allPayments, org] = await Promise.all([
           db.order.findUnique({

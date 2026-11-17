@@ -8,6 +8,7 @@ import { ItemEditorDialog } from '@/components/pedidos/item-editor-dialog';
 import { MenuPicker } from '@/components/pedidos/menu-picker';
 import { OrderStatusControls } from '@/components/pedidos/order-status-controls';
 import { OrderSummary } from '@/components/pedidos/order-summary';
+import { SettleOrderDialog } from '@/components/pedidos/settle-order-dialog';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 
@@ -20,8 +21,9 @@ import {
   useRemoveOrderItem,
   useUpdateOrderStatus,
 } from '@/features/pedidos/api/use-orders';
-import type { DraftOrderItem, OrderStatus } from '@/features/pedidos/types';
+import type { DraftOrderItem, Order, OrderStatus } from '@/features/pedidos/types';
 import { canModifyOrderItems } from '@/features/pedidos/utils/editing';
+import { shouldSettleOnAdvance } from '@/features/pedidos/utils/settlement';
 
 type ActiveOrderContainerProps = {
   orderId: string;
@@ -55,6 +57,7 @@ export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
   const productsQuery = useProducts();
 
   const [actionError, setActionError] = useState<string | null>(null);
+  const [settlement, setSettlement] = useState<Order | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editor, setEditor] = useState<EditorState>({ open: false });
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -83,6 +86,11 @@ export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
 
   async function handleAdvance(next: OrderStatus) {
     if (!orderQuery.data) return;
+    if (shouldSettleOnAdvance(orderQuery.data.type, next)) {
+      setActionError(null);
+      setSettlement(orderQuery.data);
+      return;
+    }
     setActionError(null);
     try {
       await updateStatus.mutateAsync({
@@ -218,6 +226,13 @@ export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
         />
       </div>
 
+      <SettleOrderDialog
+        onOpenChange={(open) => {
+          if (!open) setSettlement(null);
+        }}
+        open={settlement !== null}
+        order={settlement}
+      />
       <ItemEditorDialog
         initialDraft={null}
         onConfirm={handleEditorConfirm}
