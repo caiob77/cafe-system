@@ -88,7 +88,10 @@ export function StoreHeader({
             {addressLine ? <p>{addressLine}</p> : null}
             {phone ? (
               <p>
-                <a className={`text-foreground underline-offset-4 hover:underline ${focusRing}`} href={`tel:${phone}`}>
+                <a
+                  className={`text-foreground underline-offset-4 hover:underline ${focusRing}`}
+                  href={`tel:${phone}`}
+                >
                   {phone}
                 </a>
               </p>

@@ -27,7 +27,13 @@ export function MenuList({ categoryName, products, onOpen }: MenuListProps) {
           {categoryName}
         </h2>
       ) : null}
-      <ul className={categoryName ? 'mt-4 border-t border-[hsl(var(--line))]' : 'border-t border-[hsl(var(--line))]'}>
+      <ul
+        className={
+          categoryName
+            ? 'mt-4 border-t border-[hsl(var(--line))]'
+            : 'border-t border-[hsl(var(--line))]'
+        }
+      >
         {products.map((product) => (
           <li key={product.id}>
             <button
@@ -36,7 +42,9 @@ export function MenuList({ categoryName, products, onOpen }: MenuListProps) {
               type="button"
             >
               <span className="min-w-0">
-                <span className="block break-words text-[1.05rem] font-semibold leading-snug">{product.name}</span>
+                <span className="block break-words text-[1.05rem] font-semibold leading-snug">
+                  {product.name}
+                </span>
                 {product.description ? (
                   <span className="mt-0.5 line-clamp-2 block text-sm text-muted-foreground">
                     {product.description}

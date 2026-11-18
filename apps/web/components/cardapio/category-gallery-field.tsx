@@ -70,7 +70,10 @@ export function CategoryGalleryField({
       {images.length > 0 ? (
         <ul className="grid grid-cols-3 gap-2">
           {images.map((image, index) => (
-            <li className="relative overflow-hidden rounded-md border bg-muted/40" key={`${image.url}-${index}`}>
+            <li
+              className="relative overflow-hidden rounded-md border bg-muted/40"
+              key={`${image.url}-${index}`}
+            >
               <img
                 alt=""
                 className="aspect-[4/3] h-auto w-full object-cover"
@@ -107,7 +110,11 @@ export function CategoryGalleryField({
         type="button"
         variant="secondary"
       >
-        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+        {uploading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <ImagePlus className="h-4 w-4" />
+        )}
         {uploading ? 'Enviando…' : full ? 'Limite atingido' : 'Adicionar fotos'}
       </Button>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
