@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { CustomerFormDialog } from '@/components/clientes/customer-form-dialog';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 
@@ -13,6 +14,7 @@ import { useCustomers, useDeleteCustomer } from '../api/use-customers';
 import type { Customer } from '../types';
 
 export function CustomersListContainer() {
+  const { confirm } = useConfirm();
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -28,7 +30,13 @@ export function CustomersListContainer() {
   }
 
   async function handleDelete(customer: Customer) {
-    if (!window.confirm(`Remover o cliente “${customer.name}”?`)) return;
+    const ok = await confirm({
+      title: 'Remover cliente?',
+      description: `“${customer.name}” sai da lista de clientes.`,
+      confirmLabel: 'Remover',
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     try {
       await deleteCustomer.mutateAsync(customer.id);

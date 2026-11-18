@@ -60,7 +60,7 @@ export function ProductGrid({
       </header>
 
       {loading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <div className="h-64 animate-pulse rounded-lg border bg-muted/30" key={i} />
           ))}
@@ -76,7 +76,7 @@ export function ProductGrid({
           ) : null}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
           {products.map((product) => (
             <ProductCard
               canManage={canManage}

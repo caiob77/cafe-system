@@ -24,6 +24,9 @@
     --input: 38 18% 84%;
     --ring: 167 45% 28%;
     --radius: 0.5rem;
+    /* Sem isso o painel herdava a serifada padrão do navegador (a var só existia na loja). */
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+      Arial, sans-serif;
   }
 
   * {
@@ -38,5 +41,38 @@
   button,
   input {
     letter-spacing: 0;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Remove o atraso de toque duplo e o flash cinza no iOS/Android. */
+  a,
+  button,
+  input,
+  label,
+  select,
+  summary,
+  textarea,
+  [role="button"],
+  [role="tab"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }

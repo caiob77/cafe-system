@@ -56,7 +56,7 @@ export function OrderSummary({
             <Button
               disabled={mutationPending}
               onClick={onAddItem}
-              size="sm"
+              size="touch"
               type="button"
               variant="secondary"
             >

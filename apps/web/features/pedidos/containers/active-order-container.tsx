@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ItemEditorDialog } from '@/components/pedidos/item-editor-dialog';
 import { MenuPicker } from '@/components/pedidos/menu-picker';
@@ -10,6 +10,7 @@ import { OrderStatusControls } from '@/components/pedidos/order-status-controls'
 import { OrderSummary } from '@/components/pedidos/order-summary';
 import { SettleOrderDialog } from '@/components/pedidos/settle-order-dialog';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ApiError } from '@/lib/api-client';
 
 import { useCategories } from '@/features/cardapio/api/use-categories';
@@ -48,6 +49,7 @@ function describeItemsError(err: unknown): string {
 }
 
 export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
+  const { confirm, prompt } = useConfirm();
   const orderQuery = useOrder(orderId);
   const updateStatus = useUpdateOrderStatus();
   const addItem = useAddOrderItem();
@@ -61,6 +63,7 @@ export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editor, setEditor] = useState<EditorState>({ open: false });
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   const order = orderQuery.data ?? null;
   const editable = order ? canModifyOrderItems(order.status) : false;
@@ -83,6 +86,12 @@ export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
       if (first) setSelectedCategoryId(first.id);
     }
   }, [pickerOpen, visibleCategories, selectedCategoryId]);
+
+  // No celular o seletor abre abaixo da lista de itens: leva o usuário até ele.
+  useEffect(() => {
+    if (!pickerOpen) return;
+    pickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [pickerOpen]);
 
   async function handleAdvance(next: OrderStatus) {
     if (!orderQuery.data) return;
@@ -107,8 +116,18 @@ export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
 
   async function handleCancel() {
     if (!orderQuery.data) return;
-    const reason = window.prompt('Motivo do cancelamento:');
-    if (!reason || reason.trim().length < 2) return;
+    const reason = await prompt({
+      title: `Cancelar pedido #${orderQuery.data.dailyNumber}?`,
+      description: 'Informe o motivo. Ele fica registrado no pedido.',
+      label: 'Motivo do cancelamento',
+      placeholder: 'Ex.: cliente desistiu, item em falta…',
+      minLength: 2,
+      maxLength: 280,
+      confirmLabel: 'Cancelar pedido',
+      cancelLabel: 'Manter pedido',
+      destructive: true,
+    });
+    if (!reason) return;
     setActionError(null);
     try {
       await updateStatus.mutateAsync({
@@ -152,7 +171,12 @@ export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
 
   async function handleRemoveItem(itemId: string) {
     if (!orderQuery.data) return;
-    if (!window.confirm('Remover este item do pedido?')) return;
+    const ok = await confirm({
+      title: 'Remover item do pedido?',
+      confirmLabel: 'Remover',
+      destructive: true,
+    });
+    if (!ok) return;
     setActionError(null);
     try {
       await removeItem.mutateAsync({ id: orderId, itemId });
@@ -187,8 +211,8 @@ export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row">
-      <div className="flex-1 space-y-4">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="min-w-0 flex-1 space-y-4">
         <OrderSummary
           editable={editable}
           mutationPending={itemsPending}
@@ -197,7 +221,10 @@ export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
           order={order}
         />
         {editable && pickerOpen ? (
-          <div className="rounded-lg border bg-card p-4 shadow-sm">
+          <div
+            className="scroll-mt-20 rounded-lg border bg-card p-3 shadow-sm sm:p-4"
+            ref={pickerRef}
+          >
             <h3 className="mb-3 text-sm font-semibold">
               Adicionar item ao pedido #{order.dailyNumber}
             </h3>
@@ -217,7 +244,7 @@ export function ActiveOrderContainer({ orderId }: ActiveOrderContainerProps) {
           </p>
         ) : null}
       </div>
-      <div className="w-full shrink-0 lg:max-w-sm">
+      <div className="w-full shrink-0 lg:sticky lg:top-24 lg:max-w-sm">
         <OrderStatusControls
           onAdvance={handleAdvance}
           onCancel={handleCancel}

@@ -174,7 +174,7 @@ export function ProductFormDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar produto' : 'Novo produto'}</DialogTitle>
           <DialogDescription>
@@ -203,7 +203,7 @@ export function ProductFormDialog({
               <Label htmlFor="product-category">Categoria</Label>
               <select
                 className={cn(
-                  'flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                  'flex h-11 w-full rounded-md border border-input bg-card px-3 py-2 text-base md:h-10 md:text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
                 )}
                 id="product-category"
                 onChange={(e) => setCategoryId(e.target.value)}
@@ -316,12 +316,12 @@ export function ProductFormDialog({
 
                 return (
                   <li
-                    className="grid grid-cols-12 items-center gap-2 rounded-md border bg-muted/20 p-2"
+                    className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/20 p-2 sm:grid sm:grid-cols-12"
                     key={draft.key}
                   >
                     <Input
                       aria-label="Nome do adicional"
-                      className="col-span-5"
+                      className="w-full sm:col-span-5"
                       maxLength={80}
                       onChange={(e) => updateDraft(index, { name: e.target.value })}
                       placeholder="+ Queijo"
@@ -329,13 +329,13 @@ export function ProductFormDialog({
                     />
                     <Input
                       aria-label="Preço do adicional"
-                      className="col-span-3"
+                      className="w-28 sm:col-span-3 sm:w-auto"
                       inputMode="decimal"
                       onChange={(e) => updateDraft(index, { price: e.target.value })}
                       placeholder="0,00"
                       value={draft.price}
                     />
-                    <div className="col-span-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2">
                       <Switch
                         aria-label="Disponível"
                         checked={draft.available}
@@ -343,7 +343,7 @@ export function ProductFormDialog({
                       />
                       <span>OK</span>
                     </div>
-                    <div className="col-span-2 flex items-center justify-end gap-1">
+                    <div className="ml-auto flex items-center justify-end gap-1 sm:col-span-2 sm:ml-0">
                       <Button
                         disabled={!dirty || addonMutating}
                         onClick={() => persistAddon(draft, index)}

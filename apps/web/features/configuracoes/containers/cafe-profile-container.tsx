@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { ImageUploadField } from '@/components/image-upload-field';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -20,6 +21,7 @@ import { ORGANIZATION_SLUG_PATTERN } from '@cafe/shared/member-login';
 import { useCafeProfile, useUpdateCafeProfile } from '../api/use-cafe-profile';
 
 export function CafeProfileContainer() {
+  const { confirm } = useConfirm();
   const session = useSessionUI();
   const router = useRouter();
   const profileQuery = useCafeProfile();
@@ -84,11 +86,22 @@ export function CafeProfileContainer() {
         setError('O endereço deve ter de 3 a 48 caracteres: letras minúsculas, números e hífen.');
         return;
       }
-      const confirmed = window.confirm(
-        `Mudar o endereço para "${nextSlug}"?\n\n` +
-          `• O link antigo da loja (/loja/${profileQuery.data?.slug}) para de funcionar.\n` +
-          `• A equipe passa a entrar com usuario@${nextSlug} (mesma senha); o @${profileQuery.data?.slug} para de funcionar.`,
-      );
+      const confirmed = await confirm({
+        title: `Mudar o endereço para “${nextSlug}”?`,
+        description: (
+          <span className="block space-y-1">
+            <span className="block">
+              • O link antigo da loja (/loja/{profileQuery.data?.slug}) para de funcionar.
+            </span>
+            <span className="block">
+              • A equipe passa a entrar com usuario@{nextSlug} (mesma senha); o @
+              {profileQuery.data?.slug} para de funcionar.
+            </span>
+          </span>
+        ),
+        confirmLabel: 'Mudar endereço',
+        destructive: true,
+      });
       if (!confirmed) return;
     }
 

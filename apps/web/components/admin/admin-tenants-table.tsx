@@ -7,8 +7,10 @@ import { useState, useTransition } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { ApiError, apiClient } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 
 type Tenant = {
   id: string;
@@ -124,109 +126,98 @@ export function AdminTenantsTable({
 
         {error ? <Alert variant="destructive">{error}</Alert> : null}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b text-left text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2">Tenant</th>
-                <th className="px-3 py-2">Owner</th>
-                <th className="px-3 py-2">Plano</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2 text-right">Pedidos</th>
-                <th className="px-3 py-2 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tenants.length === 0 ? (
-                <tr>
-                  <td className="px-3 py-6 text-center text-muted-foreground" colSpan={6}>
-                    Nenhum tenant encontrado.
-                  </td>
-                </tr>
-              ) : (
-                tenants.map((tenant) => (
-                  <tr className="border-b last:border-b-0" key={tenant.id}>
-                    <td className="px-3 py-3">
-                      <p className="font-medium">{tenant.name}</p>
-                      <p className="text-xs text-muted-foreground">{tenant.slug}</p>
-                    </td>
-                    <td className="px-3 py-3">
-                      {tenant.owner ? (
-                        <div>
-                          <p>{tenant.owner.name}</p>
-                          <p className="text-xs text-muted-foreground">{tenant.owner.email}</p>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
-                          tenant.plan === 'pro'
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {tenant.plan === 'pro' ? <Crown className="h-3 w-3" /> : null}
-                        {tenant.plan.toUpperCase()}
+        {tenants.length === 0 ? (
+          <p className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+            Nenhum tenant encontrado.
+          </p>
+        ) : (
+          <>
+            {/* Celular: cards. Tabela só a partir de md. */}
+            <ul className="flex flex-col gap-2 md:hidden">
+              {tenants.map((tenant) => (
+                <li
+                  className="flex flex-col gap-3 rounded-lg border bg-background p-3"
+                  key={tenant.id}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{tenant.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{tenant.slug}</p>
+                    </div>
+                    <PlanBadge plan={tenant.plan} />
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                    <span className="min-w-0 truncate text-muted-foreground">
+                      {tenant.owner ? `${tenant.owner.name} · ${tenant.owner.email}` : 'Sem owner'}
+                    </span>
+                    <span className="flex items-center gap-3">
+                      <TenantStatus tenant={tenant} />
+                      <span className="tabular-nums text-muted-foreground">
+                        {tenant.ordersTotal} pedidos
                       </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      {tenant.suspended ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
-                          <Ban className="h-3 w-3" />
-                          Suspenso
-                        </span>
-                      ) : tenant.setupCompleted ? (
-                        <span className="text-xs text-emerald-600">Ativo</span>
-                      ) : (
-                        <span className="text-xs text-amber-600">Setup pendente</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right">{tenant.ordersTotal}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex flex-wrap justify-end gap-1">
-                        <Button
-                          disabled={actingOn === tenant.id}
-                          onClick={() =>
-                            updateTenant(tenant.id, {
-                              plan: tenant.plan === 'pro' ? 'free' : 'pro',
-                            })
-                          }
-                          size="sm"
-                          type="button"
-                          variant="secondary"
-                        >
-                          {actingOn === tenant.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <RefreshCw className="h-3 w-3" />
-                          )}
-                          {tenant.plan === 'pro' ? 'Reverter Free' : 'Marcar Pro'}
-                        </Button>
-                        <Button
-                          disabled={actingOn === tenant.id}
-                          onClick={() => updateTenant(tenant.id, { suspended: !tenant.suspended })}
-                          size="sm"
-                          type="button"
-                          variant={tenant.suspended ? 'secondary' : 'destructive'}
-                        >
-                          {actingOn === tenant.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Ban className="h-3 w-3" />
-                          )}
-                          {tenant.suspended ? 'Reativar' : 'Suspender'}
-                        </Button>
-                      </div>
-                    </td>
+                    </span>
+                  </div>
+                  <TenantActions
+                    acting={actingOn === tenant.id}
+                    className="[&>button]:h-10 [&>button]:flex-1"
+                    onUpdate={updateTenant}
+                    tenant={tenant}
+                  />
+                </li>
+              ))}
+            </ul>
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead className="border-b text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2">Tenant</th>
+                    <th className="px-3 py-2">Owner</th>
+                    <th className="px-3 py-2">Plano</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2 text-right">Pedidos</th>
+                    <th className="px-3 py-2 text-right">Ações</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {tenants.map((tenant) => (
+                    <tr className="border-b last:border-b-0" key={tenant.id}>
+                      <td className="px-3 py-3">
+                        <p className="font-medium">{tenant.name}</p>
+                        <p className="text-xs text-muted-foreground">{tenant.slug}</p>
+                      </td>
+                      <td className="px-3 py-3">
+                        {tenant.owner ? (
+                          <div>
+                            <p>{tenant.owner.name}</p>
+                            <p className="text-xs text-muted-foreground">{tenant.owner.email}</p>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <PlanBadge plan={tenant.plan} />
+                      </td>
+                      <td className="px-3 py-3">
+                        <TenantStatus tenant={tenant} />
+                      </td>
+                      <td className="px-3 py-3 text-right">{tenant.ordersTotal}</td>
+                      <td className="px-3 py-3">
+                        <TenantActions
+                          acting={actingOn === tenant.id}
+                          className="justify-end"
+                          onUpdate={updateTenant}
+                          tenant={tenant}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
@@ -258,5 +249,86 @@ export function AdminTenantsTable({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function PlanBadge({ plan }: { plan: Tenant['plan'] }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-medium',
+        plan === 'pro' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+      )}
+    >
+      {plan === 'pro' ? <Crown className="h-3 w-3" /> : null}
+      {plan.toUpperCase()}
+    </span>
+  );
+}
+
+function TenantStatus({ tenant }: { tenant: Tenant }) {
+  if (tenant.suspended) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
+        <Ban className="h-3 w-3" />
+        Suspenso
+      </span>
+    );
+  }
+  if (tenant.setupCompleted) return <span className="text-xs text-emerald-600">Ativo</span>;
+  return <span className="text-xs text-amber-600">Setup pendente</span>;
+}
+
+type TenantPatch = { plan?: Tenant['plan']; suspended?: boolean };
+
+function TenantActions({
+  tenant,
+  acting,
+  className,
+  onUpdate,
+}: {
+  tenant: Tenant;
+  acting: boolean;
+  className?: string;
+  onUpdate: (id: string, patch: TenantPatch) => void;
+}) {
+  const { confirm } = useConfirm();
+
+  async function toggleSuspended() {
+    if (!tenant.suspended) {
+      const ok = await confirm({
+        title: `Suspender ${tenant.name}?`,
+        description: 'Você pode reativar depois pelo mesmo botão.',
+        confirmLabel: 'Suspender',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+    onUpdate(tenant.id, { suspended: !tenant.suspended });
+  }
+
+  return (
+    <div className={cn('flex flex-wrap gap-1', className)}>
+      <Button
+        disabled={acting}
+        onClick={() => onUpdate(tenant.id, { plan: tenant.plan === 'pro' ? 'free' : 'pro' })}
+        size="sm"
+        type="button"
+        variant="secondary"
+      >
+        {acting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+        {tenant.plan === 'pro' ? 'Reverter Free' : 'Marcar Pro'}
+      </Button>
+      <Button
+        disabled={acting}
+        onClick={toggleSuspended}
+        size="sm"
+        type="button"
+        variant={tenant.suspended ? 'secondary' : 'destructive'}
+      >
+        {acting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Ban className="h-3 w-3" />}
+        {tenant.suspended ? 'Reativar' : 'Suspender'}
+      </Button>
+    </div>
   );
 }

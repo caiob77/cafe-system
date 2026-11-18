@@ -4,9 +4,11 @@ import { Loader2, MenuSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { BoardColumnTabs, firstNonEmptyColumn } from '@/components/pedidos/board-column-tabs';
 import { OrdersKanbanCard } from '@/components/pedidos/orders-kanban-card';
 import { SettleOrderDialog } from '@/components/pedidos/settle-order-dialog';
 import { ApiError } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 
 import { useOrders, useUpdateOrderStatus } from '@/features/pedidos/api/use-orders';
 import type { Order, OrderStatus } from '@/features/pedidos/types';
@@ -22,6 +24,7 @@ export function OrdersKanbanContainer() {
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [settlement, setSettlement] = useState<Order | null>(null);
+  const [mobileColumn, setMobileColumn] = useState<OrderStatus | null>(null);
 
   const orders = ordersQuery.data ?? [];
 
@@ -79,9 +82,20 @@ export function OrdersKanbanContainer() {
     const bucket = grouped.get(order.status);
     if (bucket) bucket.push(order);
   }
+  const activeColumn = mobileColumn ?? firstNonEmptyColumn(KANBAN_COLUMNS, grouped);
 
   return (
     <div className="flex flex-col gap-3">
+      <BoardColumnTabs
+        columns={KANBAN_COLUMNS.map((column) => ({
+          value: column,
+          label: orderStatusLabel[column],
+          count: grouped.get(column)?.length ?? 0,
+        }))}
+        onChange={setMobileColumn}
+        value={activeColumn}
+      />
+
       {error ? (
         <p className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
@@ -93,16 +107,19 @@ export function OrdersKanbanContainer() {
           const columnOrders = grouped.get(column) ?? [];
           return (
             <section
-              className="flex min-h-[200px] flex-col gap-2 rounded-lg border bg-muted/20 p-3"
+              className={cn(
+                'flex-col gap-2 md:flex md:min-h-[200px] md:rounded-lg md:border md:bg-muted/20 md:p-3',
+                column === activeColumn ? 'flex' : 'hidden',
+              )}
               key={column}
             >
-              <header className="flex items-center justify-between">
+              <header className="hidden items-center justify-between md:flex">
                 <h2 className="text-sm font-semibold">{orderStatusLabel[column]}</h2>
                 <span className="text-xs text-muted-foreground">{columnOrders.length}</span>
               </header>
               <div className="flex flex-1 flex-col gap-2">
                 {columnOrders.length === 0 ? (
-                  <p className="rounded-md border border-dashed py-6 text-center text-xs text-muted-foreground">
+                  <p className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground md:py-6 md:text-xs">
                     Nenhum pedido.
                   </p>
                 ) : (

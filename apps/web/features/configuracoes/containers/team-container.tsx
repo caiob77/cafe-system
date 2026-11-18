@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
@@ -38,6 +39,7 @@ function validateMember(name: string, username: string, password: string): strin
 }
 
 export function TeamContainer() {
+  const { confirm } = useConfirm();
   const session = useSessionUI();
   const teamQuery = useTeam();
   const cafeQuery = useCafeProfile();
@@ -256,11 +258,16 @@ export function TeamContainer() {
                   {!isOwner || isSelf || memberIsOwner ? null : (
                     <Button
                       disabled={removeMember.isPending}
-                      onClick={() => {
-                        const message = member.username
-                          ? `Remover ${member.user.name} da equipe? A conta e o login dele serão apagados.`
-                          : `Remover ${member.user.name} da equipe?`;
-                        if (!window.confirm(message)) return;
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: `Remover ${member.user.name} da equipe?`,
+                          description: member.username
+                            ? 'A conta e o login dessa pessoa serão apagados.'
+                            : undefined,
+                          confirmLabel: 'Remover',
+                          destructive: true,
+                        });
+                        if (!ok) return;
                         void run(
                           () => removeMember.mutateAsync(member.id),
                           'Não foi possível remover o membro.',

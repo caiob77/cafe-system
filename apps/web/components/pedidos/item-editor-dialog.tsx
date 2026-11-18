@@ -173,20 +173,24 @@ export function ItemEditorDialog({
               <div className="flex items-center gap-2">
                 <Button
                   aria-label="Diminuir quantidade"
+                  className="h-11 w-11"
                   onClick={() => adjustQuantity(-1)}
                   size="icon"
                   type="button"
-                  variant="ghost"
+                  variant="secondary"
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
-                <span className="w-8 text-center text-lg font-semibold">{quantity}</span>
+                <span className="w-8 text-center text-lg font-semibold tabular-nums">
+                  {quantity}
+                </span>
                 <Button
                   aria-label="Aumentar quantidade"
+                  className="h-11 w-11"
                   onClick={() => adjustQuantity(1)}
                   size="icon"
                   type="button"
-                  variant="ghost"
+                  variant="secondary"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -269,15 +273,24 @@ export function ItemEditorDialog({
           </div>
         )}
 
-        <DialogFooter className="items-center sm:justify-between">
-          <span className="text-sm font-semibold text-primary">
-            Subtotal: {formatPrice(itemTotal)}
-          </span>
+        <DialogFooter className="flex-row items-center justify-between sm:justify-between">
+          <div className="flex flex-col">
+            <span className="text-xs text-muted-foreground">Subtotal</span>
+            <span className="text-base font-semibold tabular-nums text-primary">
+              {formatPrice(itemTotal)}
+            </span>
+          </div>
           <div className="flex gap-2">
-            <Button onClick={() => onOpenChange(false)} type="button" variant="ghost">
+            <Button
+              className="hidden sm:inline-flex"
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="ghost"
+            >
               Cancelar
             </Button>
             <Button
+              className="h-11 px-5 sm:h-10"
               disabled={detailQuery.isLoading || !product}
               onClick={handleConfirm}
               type="button"

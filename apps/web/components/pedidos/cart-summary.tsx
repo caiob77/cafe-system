@@ -40,7 +40,9 @@ export function CartSummary({
           <ShoppingCart className="h-4 w-4" />
           Carrinho
         </h2>
-        <span className="text-xs text-muted-foreground">{items.length} itens</span>
+        <span className="text-xs text-muted-foreground">
+          {items.length} {items.length === 1 ? 'item' : 'itens'}
+        </span>
       </div>
 
       {empty ? (
@@ -120,7 +122,7 @@ export function CartSummary({
       <Button
         disabled={empty || submitting || confirmDisabled}
         onClick={onConfirm}
-        size="default"
+        size="touch"
         type="button"
       >
         {submitting ? 'Enviando...' : 'Confirmar pedido'}

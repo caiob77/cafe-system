@@ -30,7 +30,7 @@ export default async function AdminDashboardPage({
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-2xl font-semibold">Painel admin</h1>
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Painel admin</h1>
         <p className="text-sm text-muted-foreground">
           Métricas globais e gestão de tenants do SaaS.
         </p>

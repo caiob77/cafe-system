@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { DeliveryFeeFormDialog } from '@/components/delivery/delivery-fee-form-dialog';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ApiError } from '@/lib/api-client';
 
 import { formatPrice } from '@/features/cardapio/utils/format-price';
@@ -14,6 +15,7 @@ import { useDeleteDeliveryFee, useDeliveryFees } from '../api/use-delivery-fees'
 import type { DeliveryFee } from '../types';
 
 export function DeliveryFeesContainer() {
+  const { confirm } = useConfirm();
   const feesQuery = useDeliveryFees();
   const deleteFee = useDeleteDeliveryFee();
   const [formOpen, setFormOpen] = useState(false);
@@ -21,7 +23,13 @@ export function DeliveryFeesContainer() {
   const [error, setError] = useState<string | null>(null);
 
   async function handleDelete(fee: DeliveryFee) {
-    if (!window.confirm(`Remover a taxa de “${fee.neighborhood}”?`)) return;
+    const ok = await confirm({
+      title: 'Remover taxa de entrega?',
+      description: `A taxa do bairro “${fee.neighborhood}” deixa de ser cobrada.`,
+      confirmLabel: 'Remover',
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     try {
       await deleteFee.mutateAsync(fee.id);

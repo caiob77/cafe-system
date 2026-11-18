@@ -3,10 +3,12 @@
 import { Loader2, Plus, Utensils } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 import { TableCard } from '@/components/mesas/table-card';
 import { TableFormDialog } from '@/components/mesas/table-form-dialog';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ApiError } from '@/lib/api-client';
 
 import { useSessionUI } from '@/features/auth/context/session-ui-provider';
@@ -21,6 +23,7 @@ import type { Table, TableInput } from '@/features/mesas/types';
 const MANAGE_ROLES = new Set(['owner', 'manager']);
 
 export function TablesGridContainer() {
+  const { confirm } = useConfirm();
   const router = useRouter();
   const session = useSessionUI();
   const role = session.role;
@@ -66,12 +69,16 @@ export function TablesGridContainer() {
   }
 
   async function handleDelete(table: Table) {
-    const ok = window.confirm(`Remover a mesa #${table.number}?`);
+    const ok = await confirm({
+      title: `Remover a mesa #${table.number}?`,
+      confirmLabel: 'Remover',
+      destructive: true,
+    });
     if (!ok) return;
     try {
       await deleteTable.mutateAsync(table.id);
     } catch (err) {
-      window.alert(err instanceof ApiError ? err.message : 'Não foi possível remover.');
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível remover.');
     }
   }
 
@@ -84,7 +91,7 @@ export function TablesGridContainer() {
           Toque numa mesa livre para abrir um novo pedido, ou em uma ocupada para acompanhar.
         </p>
         {canManage ? (
-          <Button onClick={openCreate} size="touch" type="button">
+          <Button className="shrink-0" onClick={openCreate} size="touch" type="button">
             <Plus className="h-4 w-4" />
             Nova mesa
           </Button>

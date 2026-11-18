@@ -49,6 +49,7 @@ export function OrderStatusControls({
         ) : (
           advancing.map((next) => (
             <Button
+              className="flex-1 sm:flex-none"
               disabled={pending}
               key={next}
               onClick={() => onAdvance(next)}
@@ -66,6 +67,7 @@ export function OrderStatusControls({
         )}
         {canCancel ? (
           <Button
+            className="flex-1 sm:flex-none"
             disabled={pending}
             onClick={onCancel}
             size="touch"

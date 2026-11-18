@@ -29,7 +29,8 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <RealtimeSync />
       {children}
-      <ReactQueryDevtools initialIsOpen={false} />
+      {/* Canto superior: embaixo ele cobriria a barra de navegação fixa do celular. */}
+      <ReactQueryDevtools buttonPosition="top-left" initialIsOpen={false} />
     </QueryClientProvider>
   );
 }

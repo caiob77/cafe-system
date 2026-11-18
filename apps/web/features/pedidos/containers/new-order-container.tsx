@@ -1,19 +1,22 @@
 'use client';
 
+import { ShoppingCart } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { CartSummary } from '@/components/pedidos/cart-summary';
 import { ItemEditorDialog } from '@/components/pedidos/item-editor-dialog';
 import { MenuPicker } from '@/components/pedidos/menu-picker';
+import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 
 import { useCategories } from '@/features/cardapio/api/use-categories';
 import { useProducts } from '@/features/cardapio/api/use-products';
 import type { Product } from '@/features/cardapio/types';
+import { formatPrice } from '@/features/cardapio/utils/format-price';
 import { useCreateOrder } from '@/features/pedidos/api/use-orders';
 import type { CreateOrderPayload, DraftOrderItem } from '@/features/pedidos/types';
-import { generateDraftItemId } from '@/features/pedidos/utils/draft';
+import { calculateDraftSubtotal, generateDraftItemId } from '@/features/pedidos/utils/draft';
 
 type NewOrderContainerProps = {
   tableId: string;
@@ -35,6 +38,19 @@ export function NewOrderContainer({ tableId, tableNumber }: NewOrderContainerPro
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorState>({ open: false });
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [cartInView, setCartInView] = useState(false);
+
+  // Esconde a barra fixa do carrinho quando o próprio carrinho já está na tela.
+  useEffect(() => {
+    const cart = document.getElementById('new-order-cart');
+    if (!cart || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setCartInView(entry?.isIntersecting ?? false),
+      { threshold: 0.25 },
+    );
+    observer.observe(cart);
+    return () => observer.disconnect();
+  }, []);
 
   const visibleCategories = useMemo(
     () => (categoriesQuery.data ?? []).filter((category) => category.active),
@@ -104,13 +120,21 @@ export function NewOrderContainer({ tableId, tableNumber }: NewOrderContainerPro
     }
   }
 
+  const itemCount = draftItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  function scrollToCart() {
+    document
+      .getElementById('new-order-cart')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   return (
-    <div className="flex flex-col gap-4 lg:flex-row">
-      <div className="flex-1 space-y-4">
+    <div className="flex flex-col gap-4 pb-20 lg:flex-row lg:items-start lg:pb-0">
+      <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">Novo pedido — Mesa #{tableNumber}</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="hidden text-sm text-muted-foreground sm:block">
               Selecione produtos do cardápio para montar o pedido.
             </p>
           </div>
@@ -126,7 +150,10 @@ export function NewOrderContainer({ tableId, tableNumber }: NewOrderContainerPro
         />
       </div>
 
-      <div className="w-full shrink-0 lg:max-w-sm">
+      <div
+        className="w-full shrink-0 scroll-mt-20 lg:sticky lg:top-24 lg:max-w-sm"
+        id="new-order-cart"
+      >
         <CartSummary
           items={draftItems}
           notes={orderNotes}
@@ -142,6 +169,25 @@ export function NewOrderContainer({ tableId, tableNumber }: NewOrderContainerPro
           </p>
         ) : null}
       </div>
+
+      {draftItems.length > 0 && !cartInView ? (
+        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t bg-card/95 px-4 py-2.5 shadow-[0_-4px_12px_-6px_rgb(0_0_0/0.15)] backdrop-blur animate-in slide-in-from-bottom-4 lg:hidden">
+          <div className="mx-auto flex max-w-xl items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">
+                {itemCount} {itemCount === 1 ? 'item' : 'itens'} no carrinho
+              </p>
+              <p className="text-base font-semibold tabular-nums text-primary">
+                {formatPrice(calculateDraftSubtotal(draftItems))}
+              </p>
+            </div>
+            <Button onClick={scrollToCart} size="touch" type="button">
+              <ShoppingCart className="h-4 w-4" />
+              Revisar e enviar
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <ItemEditorDialog
         initialDraft={editor.open ? editor.draft : null}

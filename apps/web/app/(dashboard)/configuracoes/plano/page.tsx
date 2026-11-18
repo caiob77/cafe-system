@@ -6,9 +6,9 @@ export default async function PlanoPage() {
   const planResponse = await getCurrentPlan();
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 sm:gap-6">
       <header>
-        <h1 className="text-2xl font-semibold">Plano</h1>
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Plano</h1>
         <p className="text-sm text-muted-foreground">
           Acompanhe seu uso e veja os limites do seu plano.
         </p>

@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 import { CategoryFormDialog } from '@/components/cardapio/category-form-dialog';
 import { CategoryList } from '@/components/cardapio/category-list';
 import { ProductFormDialog } from '@/components/cardapio/product-form-dialog';
 import { ProductGrid } from '@/components/cardapio/product-grid';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ApiError } from '@/lib/api-client';
 
 import { useSessionUI } from '@/features/auth/context/session-ui-provider';
@@ -29,6 +31,7 @@ import type { Category, CategoryInput, Product } from '@/features/cardapio/types
 const MANAGE_ROLES = new Set(['owner', 'manager']);
 
 export function MenuContainer() {
+  const { confirm } = useConfirm();
   const session = useSessionUI();
   const role = session.role;
   const canManage = role !== null && MANAGE_ROLES.has(role);
@@ -136,12 +139,17 @@ export function MenuContainer() {
   }
 
   async function handleDeleteCategory(category: Category) {
-    const ok = window.confirm(`Remover a categoria "${category.name}"?`);
+    const ok = await confirm({
+      title: 'Remover categoria?',
+      description: `“${category.name}” some do cardápio.`,
+      confirmLabel: 'Remover',
+      destructive: true,
+    });
     if (!ok) return;
     try {
       await deleteCategory.mutateAsync(category.id);
     } catch (err) {
-      window.alert(err instanceof ApiError ? err.message : 'Não foi possível remover.');
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível remover.');
     }
   }
 
@@ -176,12 +184,17 @@ export function MenuContainer() {
   }
 
   async function handleDeleteProduct(product: Product) {
-    const ok = window.confirm(`Remover o produto "${product.name}"?`);
+    const ok = await confirm({
+      title: 'Remover produto?',
+      description: `“${product.name}” some do cardápio.`,
+      confirmLabel: 'Remover',
+      destructive: true,
+    });
     if (!ok) return;
     try {
       await deleteProduct.mutateAsync(product.id);
     } catch (err) {
-      window.alert(err instanceof ApiError ? err.message : 'Não foi possível remover.');
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível remover.');
     }
   }
 

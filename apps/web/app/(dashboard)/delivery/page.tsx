@@ -16,9 +16,9 @@ export default function DeliveryPage({ searchParams }: DeliveryPageProps) {
   const initialTab = searchParams.aba === 'configuracoes' ? 'settings' : 'new';
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 sm:gap-6">
       <header>
-        <h1 className="text-2xl font-semibold">Delivery</h1>
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Delivery</h1>
         <p className="text-sm text-muted-foreground">
           Pedidos de entrega, base de clientes e taxas por bairro.
         </p>
